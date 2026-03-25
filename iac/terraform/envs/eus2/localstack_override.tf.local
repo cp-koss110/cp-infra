@@ -1,0 +1,30 @@
+# LocalStack provider overrides — active only during local testing with tflocal.
+# Terraform merges this with providers.tf automatically.
+# This file is safe to commit — it only skips checks that are irrelevant for LocalStack.
+
+provider "aws" {
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
+  skip_metadata_api_check     = true
+  s3_use_path_style           = true
+
+  endpoints {
+    s3             = "http://localhost:4566"
+    sqs            = "http://localhost:4566"
+    sts            = "http://localhost:4566"
+    iam            = "http://localhost:4566"
+    ecr            = "http://localhost:4566"
+    ecs            = "http://localhost:4566"
+    ec2            = "http://localhost:4566"
+    ssm            = "http://localhost:4566"
+    dynamodb       = "http://localhost:4566"
+    cloudwatch     = "http://localhost:4566"
+    logs           = "http://localhost:4566"
+    elb            = "http://localhost:4566"
+    elbv2          = "http://localhost:4566"
+    codecommit     = "http://localhost:4566"
+    codebuild      = "http://localhost:4566"
+    codepipeline   = "http://localhost:4566"
+    events         = "http://localhost:4566"
+  }
+}

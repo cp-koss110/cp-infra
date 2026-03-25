@@ -1,0 +1,7 @@
+# Bootstrap Layer — Variable Overrides
+# Copy this file to terraform.tfvars if you need to override defaults.
+# The defaults in variables.tf are already set for this project.
+#
+# aws_region           = "us-east-2"
+# project_name         = "exam-costa"
+# codecommit_repo_name = "exam-costa"

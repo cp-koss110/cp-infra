@@ -1,0 +1,104 @@
+version: "3.8"
+
+# Local development environment — full stack against LocalStack.
+#
+# Usage from cp-infra root:
+#   make local-up        — start LocalStack + seed resources
+#   make local-build     — build + start full stack (api, worker, localstack)
+#   make local-down      — stop everything
+
+services:
+
+  # ==========================================
+  # LocalStack — AWS emulation
+  # ==========================================
+  localstack:
+    image: localstack/localstack:3.4
+    container_name: exam-costa-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,sqs,ssm,iam,sts
+      - DEBUG=0
+      - PERSISTENCE=0
+      - AWS_DEFAULT_REGION=us-east-2
+      - LOCALSTACK_HOST=localhost
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # Seeds SQS queues, S3 buckets and SSM parameters
+  localstack-init:
+    image: amazon/aws-cli:2.15.0
+    container_name: exam-costa-localstack-init
+    depends_on:
+      localstack:
+        condition: service_healthy
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-2
+      - LOCALSTACK_ENDPOINT=http://localstack:4566
+    volumes:
+      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/bash", "/scripts/bootstrap-local.sh"]
+    restart: "no"
+
+  # ==========================================
+  # API service
+  # ==========================================
+  api:
+    build:
+      context: ../../cp-api
+      dockerfile: Dockerfile
+    container_name: exam-costa-api
+    ports:
+      - "8000:8000"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=us-east-2
+      - AWS_DEFAULT_REGION=us-east-2
+      - LOCALSTACK_ENDPOINT=http://localstack:4566
+      - SQS_QUEUE_URL=http://sqs.us-east-2.localhost.localstack.cloud:4566/000000000000/exam-costa-local-messages
+      - SSM_PARAMETER_NAME=/exam-costa/local/api/token
+    depends_on:
+      localstack-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================
+  # Worker service
+  # ==========================================
+  worker:
+    build:
+      context: ../../cp-worker
+      dockerfile: Dockerfile
+    container_name: exam-costa-worker
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=us-east-2
+      - AWS_DEFAULT_REGION=us-east-2
+      - LOCALSTACK_ENDPOINT=http://localstack:4566
+      - SQS_QUEUE_URL=http://sqs.us-east-2.localhost.localstack.cloud:4566/000000000000/exam-costa-local-messages
+      - S3_BUCKET_NAME=exam-costa-local-messages
+      - POLL_INTERVAL=5
+    depends_on:
+      localstack-init:
+        condition: service_completed_successfully
+
+volumes:
+  localstack_data:
+    driver: local

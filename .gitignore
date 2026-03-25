@@ -1,0 +1,17 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+errored.tfstate_
+.terraform.lock.hcl
+
+# Backend config contains real bucket names — use backend.hcl.example as template
+iac/terraform/envs/eus2/backend.hcl
+iac/bootstrap/terraform.tfvars
+
+# Sensitive tfvars — keep examples, ignore real values
+# prod.tfvars is committed (no real secrets — token is a placeholder)
+
+# Local dev
+.env

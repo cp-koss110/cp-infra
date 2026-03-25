@@ -1,0 +1,94 @@
+# Terraform Variables for Test Environment
+# Copy this file to test.tfvars and customize values
+# cp test.tfvars.example test.tfvars
+
+# ==========================================
+# General Configuration
+# ==========================================
+aws_region   = "us-east-2"
+project_name = "exam-costa"
+environment  = "test"
+
+tags = {
+  Project     = "DevOps Exam Costa"
+  Environment = "test"
+  ManagedBy   = "terraform"
+  Owner       = "costa"
+  Purpose     = "exam-submission"
+}
+
+# ==========================================
+# Network Configuration
+# ==========================================
+vpc_cidr             = "10.0.0.0/16"
+availability_zones   = ["us-east-2a", "us-east-2b"]
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
+
+# Cost optimization for test environment
+enable_nat_gateway = true
+single_nat_gateway = true  # Use single NAT to save costs
+
+# ==========================================
+# ECR Configuration
+# ==========================================
+create_ecr_repositories = true
+ecr_image_tag_mutability = "MUTABLE"
+ecr_scan_on_push         = true
+
+# Image configuration
+image_tag = "latest"  # Override with specific tag if needed
+# api_image = ""      # Leave empty to use ECR
+# worker_image = ""   # Leave empty to use ECR
+
+# ==========================================
+# S3 Configuration
+# ==========================================
+s3_force_destroy      = true   # Allow destroying bucket in test
+s3_lifecycle_enabled  = false  # Disable lifecycle for test
+
+# ==========================================
+# SQS Configuration
+# ==========================================
+sqs_visibility_timeout = 30
+sqs_message_retention  = 345600  # 4 days
+sqs_receive_wait_time  = 20      # Long polling
+sqs_max_receive_count  = 5       # DLQ threshold
+
+# ==========================================
+# SSM Configuration
+# ==========================================
+# API token - use a test token (change after deployment)
+api_token_value = "test-token-change-me-in-ssm"
+
+# ==========================================
+# ALB Configuration
+# ==========================================
+alb_enable_deletion_protection = false  # Allow deletion in test
+alb_idle_timeout              = 60
+
+# ==========================================
+# ECS Configuration
+# ==========================================
+ecs_enable_container_insights = true
+
+# API Service - minimal resources for test
+api_desired_count = 1
+api_cpu           = 256   # 0.25 vCPU
+api_memory        = 512   # 512 MB
+
+# Worker Service - minimal resources for test
+worker_desired_count = 1
+worker_cpu           = 256   # 0.25 vCPU
+worker_memory        = 512   # 512 MB
+worker_poll_interval = 5     # Poll every 5 seconds
+
+# ==========================================
+# Logging Configuration
+# ==========================================
+log_retention_days = 7  # Keep logs for 7 days in test
+
+# ==========================================
+# Monitoring Configuration
+# ==========================================
+enable_alarms = true  # Enable CloudWatch alarms

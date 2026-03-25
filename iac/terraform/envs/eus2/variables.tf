@@ -255,6 +255,17 @@ variable "worker_poll_interval" {
   default     = 5
 }
 
+variable "log_level" {
+  description = "Log level for API and Worker services (DEBUG, INFO, WARNING, ERROR)"
+  type        = string
+  default     = "INFO"
+
+  validation {
+    condition     = contains(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], var.log_level)
+    error_message = "log_level must be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL"
+  }
+}
+
 # ==========================================
 # Logging Configuration
 # ==========================================

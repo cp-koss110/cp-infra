@@ -85,6 +85,7 @@ worker_desired_count = 2    # At least 2 for HA
 worker_cpu           = 512  # 0.5 vCPU
 worker_memory        = 1024 # 1 GB
 worker_poll_interval = 10   # Poll every 10 seconds
+log_level            = "WARNING"
 
 # ==========================================
 # Logging Configuration

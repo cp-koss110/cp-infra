@@ -84,6 +84,7 @@ worker_desired_count = 1
 worker_cpu           = 256
 worker_memory        = 512
 worker_poll_interval = 10
+log_level            = "INFO"
 
 # ==========================================
 # Logging / Monitoring

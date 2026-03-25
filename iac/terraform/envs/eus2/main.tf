@@ -490,6 +490,7 @@ module "ecs_service_api" {
     AWS_REGION         = var.aws_region
     SQS_QUEUE_URL      = module.sqs_messages.queue_url
     SSM_PARAMETER_NAME = module.ssm_api_token.parameter_name
+    LOG_LEVEL          = var.log_level
   }
 
   # CloudWatch Logs
@@ -539,6 +540,7 @@ module "ecs_service_worker" {
     SQS_QUEUE_URL  = module.sqs_messages.queue_url
     S3_BUCKET_NAME = module.s3_messages.bucket_name
     POLL_INTERVAL  = tostring(var.worker_poll_interval)
+    LOG_LEVEL      = var.log_level
   }
 
   # CloudWatch Logs

@@ -4,7 +4,7 @@
 .PHONY: help \
         local-up local-build local-down local-logs logs-api logs-worker logs-localstack \
         tf-init tf-plan-staging tf-apply-staging tf-plan-prod tf-apply-prod \
-        test test-unit test-integration test-validate test-e2e \
+        app-test app-test-unit app-test-integration test-validate test-e2e \
         venv-clean
 
 COMPOSE      := docker compose -f local/docker-compose.yml
@@ -34,12 +34,14 @@ help:
 	@echo "    tf-plan-prod        plan with prod.tfvars"
 	@echo "    tf-apply-prod       apply production (auto-approve)"
 	@echo ""
-	@echo "  Tests:"
-	@echo "    test              run all unit tests (api + worker)"
-	@echo "    test-unit         same as test"
-	@echo "    test-integration  integration tests (requires LocalStack — make local-up first)"
-	@echo "    venv-clean        remove .venv from cp-api and cp-worker"
-	@echo "    test-validate     terraform fmt -check + validate"
+	@echo "  App tests:"
+	@echo "    app-test              run all unit tests (api + worker)"
+	@echo "    app-test-unit         same as app-test"
+	@echo "    app-test-integration  integration tests (requires LocalStack — make local-up first)"
+	@echo "    venv-clean            remove .venv from cp-api and cp-worker"
+	@echo ""
+	@echo "  Infra tests:"
+	@echo "    test-validate     terraform fmt-check + validate"
 	@echo "    test-e2e          smoke tests (requires ALB_URL env var)"
 	@echo ""
 
@@ -109,17 +111,17 @@ tf-apply-prod:
 # Tests
 # ==========================================
 
-test: test-unit
+app-test: app-test-unit
 
-test-unit:
+app-test-unit:
 	$(MAKE) -C ../cp-api    test-unit
 	$(MAKE) -C ../cp-worker test-unit
 
-test-integration:
+app-test-integration:
 	@if [ -z "$(LOCALSTACK_ENDPOINT)" ]; then \
 		echo "ERROR: LOCALSTACK_ENDPOINT is not set."; \
 		echo "  Run: make local-up  (then wait ~10s for LocalStack to be ready)"; \
-		echo "  Then: LOCALSTACK_ENDPOINT=http://localhost:4566 make test-integration"; \
+		echo "  Then: LOCALSTACK_ENDPOINT=http://localhost:4566 make app-test-integration"; \
 		exit 1; \
 	fi
 	$(MAKE) -C ../cp-api    test-integration LOCALSTACK_ENDPOINT=$(LOCALSTACK_ENDPOINT)

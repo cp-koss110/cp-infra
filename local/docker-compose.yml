@@ -7,6 +7,11 @@ version: "3.8"
 #   make local-build     — build + start full stack (api, worker, localstack)
 #   make local-down      — stop everything
 
+networks:
+  exam-costa:
+    name: exam-costa-local
+    driver: bridge
+
 services:
 
   # ==========================================
@@ -15,6 +20,8 @@ services:
   localstack:
     image: localstack/localstack:3.4
     container_name: exam-costa-localstack
+    networks:
+      - exam-costa
     ports:
       - "4566:4566"
     environment:
@@ -37,6 +44,8 @@ services:
   localstack-init:
     image: amazon/aws-cli:2.15.0
     container_name: exam-costa-localstack-init
+    networks:
+      - exam-costa
     depends_on:
       localstack:
         condition: service_healthy
@@ -73,6 +82,8 @@ services:
       - SQS_QUEUE_URL=http://sqs.us-east-2.localhost.localstack.cloud:4566/000000000000/exam-costa-local-messages
       - SSM_PARAMETER_NAME=/exam-costa/local/api/token
       - LOG_LEVEL=DEBUG
+    networks:
+      - exam-costa
     depends_on:
       localstack-init:
         condition: service_completed_successfully
@@ -105,6 +116,8 @@ services:
       - S3_BUCKET_NAME=exam-costa-local-messages
       - POLL_INTERVAL=5
       - LOG_LEVEL=DEBUG
+    networks:
+      - exam-costa
     depends_on:
       localstack-init:
         condition: service_completed_successfully

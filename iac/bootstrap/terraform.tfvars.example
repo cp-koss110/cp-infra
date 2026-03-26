@@ -1,7 +1,13 @@
 # Bootstrap Layer — Variable Overrides
-# Copy this file to terraform.tfvars if you need to override defaults.
-# The defaults in variables.tf are already set for this project.
+# Copy this file to terraform.tfvars only if you need to override defaults.
+# The defaults in variables.tf are already correct for this project.
 #
-# aws_region           = "us-east-2"
-# project_name         = "exam-costa"
-# codecommit_repo_name = "exam-costa"
+# aws_region    = "us-east-2"
+# project_name  = "exam-costa"
+# owner         = "Costa"
+# force_destroy = true
+#
+# # Optional: extra tags applied to all resources
+# tags = {
+#   CostCenter = "devops-exam"
+# }

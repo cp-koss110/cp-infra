@@ -232,57 +232,74 @@ All resources are defined in `iac/terraform/envs/eus2/` and deployed per environ
 
 ### Deploy to AWS
 
-**1. Run bootstrap once** (creates S3 state bucket, DynamoDB lock table, ECR repos):
+**Prerequisites:** AWS CLI configured with credentials that have sufficient IAM permissions.
+
+**1. Bootstrap** (run once — creates state bucket, ECR repos, DynamoDB table, and writes the API token to SSM):
 ```bash
-cd iac/bootstrap
-terraform init
-terraform apply
+cd cp-infra
+
+# Option A: set the token as an env var
+API_TOKEN="your-secret-token" make bootstrap
+
+# Option B: add it to a .env file (never commit this file)
+echo 'API_TOKEN=your-secret-token' > .env
+make bootstrap
+
+# Option C: just run make bootstrap and it will prompt you
+make bootstrap
 ```
 
-**2. Configure GitHub Actions secrets** in all three repos (see table below).
+Bootstrap writes the API token to SSM as a `SecureString` at `/exam-costa/api/token`.
+The value never enters Terraform state or version control.
 
-**3. Push a tag** to trigger the first build and deploy:
+**2. Copy the backend config** (gitignored — must be created locally):
 ```bash
-cd cp-api && git tag v1.0.0 && git push --tags
+cp iac/terraform/envs/eus2/backend.hcl.example iac/terraform/envs/eus2/backend.hcl
+```
+
+**3. Configure GitHub Actions secrets** in all three repos (see table below).
+
+**4. Push a tag** to cp-api and cp-worker to trigger the first Docker build, ECR push, and automatic staging deploy:
+```bash
+cd cp-api   && git tag v1.0.0 && git push --tags
 cd cp-worker && git tag v1.0.0 && git push --tags
 ```
 
-**4. Apply infrastructure** (staging):
+The staging deploy runs automatically via GitHub Actions — no manual `terraform apply` needed.
+
+**5. Apply branch protection rules** (after the PRs from step 1 of setup are merged):
 ```bash
-cd cp-infra
-make tf-init
-make tf-apply-staging
+cd cp-infra && make branch-protection
 ```
 
 ### Required GitHub Actions secrets
 
-**cp-api and cp-worker:**
+The same 4 secrets are configured globally across all three repos:
 
-| Secret | Value |
-|--------|-------|
-| `AWS_ACCESS_KEY_ID` | IAM credentials for ECR push |
-| `AWS_SECRET_ACCESS_KEY` | IAM credentials for ECR push |
-| `AWS_REGION` | `us-east-2` (or your region) |
-| `INFRA_REPO_TOKEN` | GitHub PAT with write access to cp-infra |
-| `INFRA_REPO` | `<org>/cp-infra` |
+| Secret | Value | Used by |
+|--------|-------|---------|
+| `AWS_ACCESS_KEY_ID` | IAM access key | all 3 repos |
+| `AWS_SECRET_ACCESS_KEY` | IAM secret key | all 3 repos |
+| `INFRA_REPO_TOKEN` | GitHub fine-grained PAT (cp-infra: contents + PRs write) | all 3 repos |
+| `INFRA_REPO` | `<owner>/cp-infra` | cp-api, cp-worker |
 
-**cp-infra:**
+Everything else is read dynamically at runtime — no hardcoded secrets needed:
 
-| Secret | Value |
-|--------|-------|
-| `AWS_ACCESS_KEY_ID` | IAM credentials for Terraform |
-| `AWS_SECRET_ACCESS_KEY` | IAM credentials for Terraform |
-| `AWS_REGION` | `us-east-2` |
-| `TF_BACKEND_BUCKET` | S3 bucket name from bootstrap output |
-| `TF_LOCK_TABLE` | DynamoDB table name from bootstrap output |
-| `TF_VAR_API_TOKEN` | The secret token value for the API |
-| `STAGING_ALB_URL` | ALB DNS after first `tf-apply-staging` |
+| Value | Source |
+|-------|--------|
+| API token | SSM `/exam-costa/api/token` (written by `make bootstrap`) |
+| ALB URL | SSM `/exam-costa/staging/outputs/alb_url` (written by Terraform after first apply) |
+| State bucket | Hardcoded `exam-costa-terraform-state` in workflow env vars |
+| Lock table | Hardcoded `exam-costa-terraform-locks` in workflow env vars |
 
 ---
 
 ## Make targets reference
 
 ```
+# Bootstrap (run once)
+make bootstrap         Create AWS foundations + write API token to SSM
+
 # Local stack
 make local-up          Start LocalStack + seed resources
 make local-build       Build images + start full stack
@@ -292,17 +309,20 @@ make logs-api          Follow API logs
 make logs-worker       Follow Worker logs
 
 # Tests
-make test-unit         Unit tests for both services
-make test-integration  Integration tests (requires LOCALSTACK_ENDPOINT)
+make app-test          Unit tests for both services
+make app-test-integration  Integration tests (requires LOCALSTACK_ENDPOINT)
 make test-validate     Terraform fmt-check + validate
 make test-e2e          Smoke tests (requires ALB_URL)
 
 # Terraform
-make tf-init           terraform init
+make tf-init           terraform init with S3 backend
 make tf-plan-staging   Plan staging
 make tf-apply-staging  Apply staging
 make tf-plan-prod      Plan production
 make tf-apply-prod     Apply production
+
+# GitHub
+make branch-protection Apply branch protection rules to all 3 repos
 ```
 
 ---

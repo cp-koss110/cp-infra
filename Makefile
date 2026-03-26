@@ -2,12 +2,14 @@
 # Run from cp-infra/
 
 .PHONY: help \
+        bootstrap \
         local-up local-build local-down local-logs logs-api logs-worker logs-localstack \
         tf-init tf-plan-staging tf-apply-staging tf-plan-prod tf-apply-prod \
         app-test app-test-unit app-test-integration test-validate test-e2e \
         branch-protection \
         venv-clean
 
+BOOTSTRAP_DIR := iac/bootstrap
 COMPOSE      := docker compose -f local/docker-compose.yml
 TF_DIR       := iac/terraform/envs/eus2
 GIT_SHA      := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
@@ -15,9 +17,60 @@ BUILD_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LOCAL_VERSION := local-$(GIT_SHA)
 
 # ==========================================
+# Bootstrap (run once before first deploy)
+# ==========================================
+
+# Resolve the API token from: env var → .env file → interactive prompt.
+# The token is written to SSM as a SecureString so it never enters Terraform state.
+define get_api_token
+$(shell \
+	if [ -n "$$API_TOKEN" ]; then \
+		echo "$$API_TOKEN"; \
+	elif [ -f .env ] && grep -q '^API_TOKEN=' .env; then \
+		grep '^API_TOKEN=' .env | cut -d= -f2-; \
+	else \
+		printf "Enter API token (will be stored in SSM as SecureString): " >&2; \
+		read -r token; \
+		echo "$$token"; \
+	fi \
+)
+endef
+
+bootstrap:
+	@echo ""
+	@echo "==> Running Terraform bootstrap..."
+	cd $(BOOTSTRAP_DIR) && terraform init
+	cd $(BOOTSTRAP_DIR) && terraform apply -auto-approve
+	@echo ""
+	@echo "==> Writing API token to SSM (/exam-costa/api/token)..."
+	$(eval TOKEN := $(call get_api_token))
+	@if [ -z "$(TOKEN)" ]; then \
+		echo "ERROR: API_TOKEN is empty. Aborting."; exit 1; \
+	fi
+	@aws ssm put-parameter \
+		--name "/exam-costa/api/token" \
+		--value "$(TOKEN)" \
+		--type SecureString \
+		--region us-east-2 \
+		--overwrite \
+		--description "API auth token for the exam-costa service" \
+		> /dev/null
+	@echo "    Token written to SSM."
+	@echo ""
+	@echo "Bootstrap complete. Next steps:"
+	@echo "  1. Copy backend config:  cp $(BOOTSTRAP_DIR)/../terraform/envs/eus2/backend.hcl.example $(BOOTSTRAP_DIR)/../terraform/envs/eus2/backend.hcl"
+	@echo "  2. Push a tag to cp-api and cp-worker to trigger the first ECR build + staging deploy"
+	@echo "  3. Run 'make branch-protection' to apply GitHub branch rules"
+	@echo ""
+
+# ==========================================
 help:
 	@echo ""
 	@echo "exam-costa — available targets"
+	@echo ""
+	@echo "  Bootstrap (run once):"
+	@echo "    bootstrap     Create state bucket, ECR repos, DynamoDB lock table + write API token to SSM"
+	@echo "                  Reads API_TOKEN from env var, .env file, or interactive prompt"
 	@echo ""
 	@echo "  Local stack:"
 	@echo "    local-up      Start LocalStack + seed resources (no app build)"

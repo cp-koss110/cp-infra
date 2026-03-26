@@ -57,6 +57,10 @@ services:
     build:
       context: ../../cp-api
       dockerfile: Dockerfile
+      args:
+        VERSION: ${LOCAL_VERSION:-local-dev}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
     container_name: exam-costa-api
     ports:
       - "8000:8000"
@@ -86,6 +90,10 @@ services:
     build:
       context: ../../cp-worker
       dockerfile: Dockerfile
+      args:
+        VERSION: ${LOCAL_VERSION:-local-dev}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
     container_name: exam-costa-worker
     environment:
       - AWS_ACCESS_KEY_ID=test

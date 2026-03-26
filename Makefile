@@ -7,8 +7,11 @@
         test test-unit test-integration test-validate test-e2e \
         venv-clean
 
-COMPOSE := docker compose -f local/docker-compose.yml
-TF_DIR  := iac/terraform/envs/eus2
+COMPOSE      := docker compose -f local/docker-compose.yml
+TF_DIR       := iac/terraform/envs/eus2
+GIT_SHA      := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
+BUILD_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LOCAL_VERSION := local-$(GIT_SHA)
 
 # ==========================================
 help:
@@ -51,7 +54,7 @@ local-up:
 	@echo "Run 'make local-build' to also start the api and worker."
 
 local-build:
-	$(COMPOSE) up --build -d
+	LOCAL_VERSION=$(LOCAL_VERSION) BUILD_DATE=$(BUILD_DATE) VCS_REF=$(GIT_SHA) $(COMPOSE) up --build -d
 	@echo ""
 	@echo "Stack is up:"
 	@echo "  API    -> http://localhost:8000"

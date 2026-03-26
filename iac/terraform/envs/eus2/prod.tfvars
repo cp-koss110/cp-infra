@@ -21,14 +21,13 @@ tags = {
 # ==========================================
 # Network Configuration
 # ==========================================
-vpc_cidr             = "10.1.0.0/16"                              # Different CIDR for prod
-availability_zones   = ["us-east-2a", "us-east-2b", "us-east-2c"] # 3 AZs for HA
-public_subnet_cidrs  = ["10.1.1.0/24", "10.1.2.0/24", "10.1.3.0/24"]
-private_subnet_cidrs = ["10.1.11.0/24", "10.1.12.0/24", "10.1.13.0/24"]
+vpc_cidr             = "10.1.0.0/16" # Different CIDR for prod
+availability_zones   = ["us-east-2a", "us-east-2b"]
+public_subnet_cidrs  = ["10.1.1.0/24", "10.1.2.0/24"]
+private_subnet_cidrs = ["10.1.11.0/24", "10.1.12.0/24"]
 
-# High availability for production
 enable_nat_gateway         = true
-single_nat_gateway         = false # Use NAT in each AZ for HA
+single_nat_gateway         = true  # Single NAT to minimise cost
 enable_s3_endpoint         = true  # Free — always on
 enable_interface_endpoints = false # ~$7/mo each — enable for full private networking
 
@@ -67,24 +66,22 @@ api_token_value = "CHANGE_ME_IN_SSM_AFTER_DEPLOYMENT"
 # ==========================================
 # ALB Configuration
 # ==========================================
-alb_enable_deletion_protection = true # Protect ALB in prod
+alb_enable_deletion_protection = false # Disabled for exam — easy teardown
 alb_idle_timeout               = 60
 
 # ==========================================
 # ECS Configuration
 # ==========================================
-ecs_enable_container_insights = true
+ecs_enable_container_insights = false
 
-# API Service - scaled for production load
-api_desired_count = 2    # At least 2 for HA
-api_cpu           = 512  # 0.5 vCPU
-api_memory        = 1024 # 1 GB
+api_desired_count = 1   # Minimum for exam
+api_cpu           = 256 # 0.25 vCPU
+api_memory        = 512 # 512 MB
 
-# Worker Service - scaled for production load
-worker_desired_count = 2    # At least 2 for HA
-worker_cpu           = 512  # 0.5 vCPU
-worker_memory        = 1024 # 1 GB
-worker_poll_interval = 10   # Poll every 10 seconds
+worker_desired_count = 1
+worker_cpu           = 256
+worker_memory        = 512
+worker_poll_interval = 10 # Poll every 10 seconds
 log_level            = "WARNING"
 
 # ==========================================
@@ -95,7 +92,7 @@ log_retention_days = 30 # Keep logs for 30 days in prod
 # ==========================================
 # Monitoring Configuration
 # ==========================================
-enable_alarms = true # Always enable alarms in prod
+enable_alarms = false
 
 # ==========================================
 # CI/CD Configuration (from bootstrap outputs)

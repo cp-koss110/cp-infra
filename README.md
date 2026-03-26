@@ -121,6 +121,33 @@ make local-down
 
 ---
 
+## Pre-commit hooks (local checks before push)
+
+Pre-commit runs fast checks on every commit: file hygiene, ruff lint+format, secret scanning, and unit tests.
+
+**One-time setup (in each service repo — `cp-api` and `cp-worker`):**
+```bash
+# 1. Install dev dependencies (creates .venv)
+make install
+
+# 2. Install the git hooks
+.venv/bin/pre-commit install
+```
+
+**Run manually against all files:**
+```bash
+.venv/bin/pre-commit run --all-files
+```
+
+**For cp-infra** (requires terraform and pre-commit installed globally or via pip):
+```bash
+pip install pre-commit==3.7.1
+pre-commit install
+pre-commit run --all-files
+```
+
+---
+
 ## Running Tests
 
 ### Unit tests (no dependencies)

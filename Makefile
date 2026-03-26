@@ -5,6 +5,7 @@
         local-up local-build local-down local-logs logs-api logs-worker logs-localstack \
         tf-init tf-plan-staging tf-apply-staging tf-plan-prod tf-apply-prod \
         app-test app-test-unit app-test-integration test-validate test-e2e \
+        branch-protection \
         venv-clean
 
 COMPOSE      := docker compose -f local/docker-compose.yml
@@ -43,6 +44,10 @@ help:
 	@echo "  Infra tests:"
 	@echo "    test-validate     terraform fmt-check + validate"
 	@echo "    test-e2e          smoke tests (requires ALB_URL env var)"
+	@echo ""
+	@echo "  GitHub:"
+	@echo "    branch-protection   apply branch protection rules to all 3 repos"
+	@echo "                        (GITHUB_OWNER=koss110 by default)"
 	@echo ""
 
 # ==========================================
@@ -130,6 +135,9 @@ app-test-integration:
 venv-clean:
 	$(MAKE) -C ../cp-api    venv-clean
 	$(MAKE) -C ../cp-worker venv-clean
+
+branch-protection:
+	@bash scripts/apply-branch-protection.sh
 
 test-validate:
 	./iac/tests/terraform/validate.sh

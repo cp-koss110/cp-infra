@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "iac/**"
 
 env:
   TF_DIR: iac/terraform/envs/eus2

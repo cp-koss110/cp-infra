@@ -6,7 +6,7 @@
         local-up local-build local-down local-logs logs-api logs-worker logs-localstack \
         tf-init tf-plan-staging tf-apply-staging tf-plan-prod tf-apply-prod \
         app-test app-test-unit app-test-integration test-validate test-e2e \
-        branch-protection \
+        branch-protection branch-protection-production \
         nuke-staging nuke-production nuke-bootstrap nuke-all \
         venv-clean
 
@@ -103,8 +103,9 @@ help:
 	@echo "    test-e2e          smoke tests (requires ALB_URL env var)"
 	@echo ""
 	@echo "  GitHub:"
-	@echo "    branch-protection   apply branch protection rules to all 3 repos"
-	@echo "                        (GITHUB_OWNER=koss110 by default)"
+	@echo "    branch-protection              apply branch protection rules to all 3 repos"
+	@echo "    branch-protection-production   apply protection to cp-infra/production only"
+	@echo "                                   (GITHUB_OWNER=koss110 by default)"
 	@echo ""
 	@echo "  Nuke (DESTRUCTIVE — destroys real AWS resources):"
 	@echo "    nuke-staging        Destroy the staging Terraform environment"
@@ -201,6 +202,38 @@ venv-clean:
 
 branch-protection:
 	@bash scripts/apply-branch-protection.sh
+
+branch-protection-production:
+	@echo ""
+	@echo "→ cp-infra/production"
+	@gh api "repos/${GITHUB_OWNER:-koss110}/cp-infra/branches/production/protection" \
+	  --method PUT \
+	  --header "Accept: application/vnd.github+json" \
+	  --input - <<'EOF'
+	{
+	  "required_status_checks": {
+	    "strict": true,
+	    "contexts": [
+	      "Terraform Validate & Format",
+	      "Terraform Plan — Production",
+	      "Smoke Tests — Staging"
+	    ]
+	  },
+	  "enforce_admins": false,
+	  "required_pull_request_reviews": {
+	    "required_approving_review_count": 1,
+	    "dismiss_stale_reviews": true,
+	    "require_code_owner_reviews": true,
+	    "bypass_pull_request_allowances": {
+	      "users": ["${GITHUB_OWNER:-koss110}"],
+	      "teams": []
+	    }
+	  },
+	  "restrictions": null
+	}
+	EOF
+	@echo "Done — cp-infra/production requires: Terraform Validate & Format + Terraform Plan + Smoke Tests + 1 review"
+	@echo ""
 
 test-validate:
 	./iac/tests/terraform/validate.sh

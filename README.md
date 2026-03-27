@@ -1,6 +1,12 @@
-# DevOps Exam — Costa (Constantin) Paigin
+# cp-infra
 
-A two-microservice system built on AWS ECS Fargate, wired through SQS and S3, with a full GitHub Actions CI/CD pipeline and Terraform infrastructure-as-code.
+![Staging Deploy](https://github.com/koss110/cp-infra/actions/workflows/staging-deploy.yml/badge.svg)
+![Production Checks](https://github.com/koss110/cp-infra/actions/workflows/production-checks.yml/badge.svg)
+![Production Deploy](https://github.com/koss110/cp-infra/actions/workflows/production-deploy.yml/badge.svg)
+![Terraform](https://img.shields.io/badge/terraform-1.7-7B42BC)
+![AWS](https://img.shields.io/badge/AWS-ECS%20Fargate-FF9900)
+
+Terraform infrastructure, local development stack, and CI/CD orchestration for the DevOps Exam — Costa Paigin.
 
 ---
 
@@ -8,55 +14,112 @@ A two-microservice system built on AWS ECS Fargate, wired through SQS and S3, wi
 
 | Repo | Description |
 |------|-------------|
-| `cp-api` | REST API — receives requests, validates token, publishes to SQS |
-| `cp-worker` | Background worker — polls SQS, uploads messages to S3 |
-| `cp-infra` | Terraform infrastructure + local dev stack + CI/CD orchestration |
+| [`cp-api`](https://github.com/koss110/cp-api) | REST API — receives requests, validates token, publishes to SQS |
+| [`cp-worker`](https://github.com/koss110/cp-worker) | Background worker — polls SQS, uploads messages to S3 |
+| [`cp-infra`](https://github.com/koss110/cp-infra) | This repo — Terraform IaC + local stack + CI/CD workflows |
 
 ---
 
-## Architecture
+## System architecture
 
-```
-Client
-  │
-  ▼
-ALB (Elastic Load Balancer)
-  │
-  ▼
-cp-api (ECS Fargate)          SSM Parameter Store
-  │  validates token ◄──────────────────────────┘
-  │
-  ▼ publishes data (no token)
-SQS Queue
-  │
-  ▼
-cp-worker (ECS Fargate)
-  │
-  ▼
-S3 Bucket  (messages/YYYY/MM/DD/<message-id>.json)
-```
+```mermaid
+flowchart TD
+    client([Client]) -->|POST /message| alb[ALB\nElastic Load Balancer]
+    alb --> api[cp-api\nECS Fargate]
+    api -->|GetParameter\nWithDecryption| ssm[(SSM Parameter Store\n/exam-costa/api/token)]
+    api -->|SendMessage| sqs[(SQS Queue)]
+    sqs -->|ReceiveMessage| worker[cp-worker\nECS Fargate]
+    worker -->|PutObject| s3[(S3 Bucket\nmessages/YYYY/MM/DD/)]
+    worker -->|DeleteMessage| sqs
+    sqs -->|max retries exceeded| dlq[(SQS DLQ)]
 
-**Request payload (POST /message):**
-```json
-{
-  "data": {
-    "email_subject": "Happy new year!",
-    "email_sender": "John doe",
-    "email_timestream": "1693561101",
-    "email_content": "Just want to say... Happy new year!!!"
-  },
-  "token": "<secret>"
-}
-```
+    subgraph ecr[ECR]
+        api_img[cp-api image]
+        worker_img[cp-worker image]
+    end
 
-The API validates:
-- Token matches the value stored in SSM Parameter Store
-- All 4 email fields are present and non-blank
-- `email_timestream` is a valid numeric Unix timestamp
+    api_img -.->|pull| api
+    worker_img -.->|pull| worker
+```
 
 ---
 
-## Local Development
+## CI/CD pipeline
+
+```mermaid
+flowchart TD
+    tag[git tag vX.Y.Z\ncp-api or cp-worker] --> build[Build Docker image]
+    build --> push[Push to ECR]
+    push --> tfvars[Update image_tags\nstaging + production tfvars\nin cp-infra main]
+    tfvars --> staging_deploy[staging-deploy.yml\nterraform apply]
+    tfvars --> pr[Open / update PR\nmain → production]
+
+    pr --> checks[production-checks.yml]
+    checks --> validate[Terraform Validate\n& Format]
+    checks --> plan[Terraform Plan\nposted as PR comment]
+    checks --> smoke[Smoke Tests\nagainst staging ALB]
+
+    pr -->|merge| prod_deploy[production-deploy.yml\nterraform apply]
+
+    style staging_deploy fill:#2d6a4f,color:#fff
+    style prod_deploy fill:#1b4332,color:#fff
+    style checks fill:#264653,color:#fff
+```
+
+### Branch strategy
+
+| Branch | Environment | Trigger |
+|--------|------------|---------|
+| `main` | Staging | Push to `main` with `iac/**` changes |
+| `production` | Production | PR merged from `main` |
+
+---
+
+## Infrastructure overview
+
+```mermaid
+flowchart LR
+    subgraph vpc[VPC 10.x.0.0/16]
+        subgraph public[Public Subnets]
+            alb[ALB]
+            nat[NAT Gateway]
+        end
+        subgraph private[Private Subnets]
+            api_task[cp-api\nFargate Task]
+            worker_task[cp-worker\nFargate Task]
+        end
+    end
+
+    igw[Internet Gateway] --> alb
+    alb --> api_task
+    api_task --> nat --> internet([AWS APIs\nSQS / SSM / ECR])
+    worker_task --> nat
+```
+
+| Resource | Staging | Production |
+|----------|---------|------------|
+| ECS CPU | 256 (0.25 vCPU) | 256 (0.25 vCPU) |
+| ECS Memory | 512 MB | 512 MB |
+| NAT Gateways | 1 | 1 |
+| S3 force-destroy | yes | no |
+| Log retention | 7 days | 30 days |
+| ECR tag mutability | MUTABLE | IMMUTABLE |
+
+---
+
+## Terraform state
+
+| Environment | S3 key |
+|-------------|--------|
+| Staging | `envs/eus2/staging/terraform.tfstate` |
+| Production | `envs/eus2/production/terraform.tfstate` |
+
+State bucket: `exam-costa-terraform-state`
+Lock table: `exam-costa-terraform-locks`
+
+---
+
+## Local development
 
 ### Prerequisites
 
@@ -64,23 +127,42 @@ The API validates:
 - `make`
 - AWS CLI (for inspecting LocalStack resources)
 
-### Quickstart
+### Repo layout (siblings required)
+
+```
+parent-dir/
+├── cp-infra/    ← this repo
+├── cp-api/
+└── cp-worker/
+```
+
+### Full local stack quickstart
+
+```mermaid
+flowchart LR
+    ls[LocalStack\n:4566] -->|seeds| sqs_local[(SQS\nexam-costa-local-messages)]
+    ls -->|seeds| s3_local[(S3\nexam-costa-local-messages)]
+    ls -->|seeds| ssm_local[(SSM\n/exam-costa/local/api/token)]
+    api_local[cp-api\n:8000] --> ls
+    worker_local[cp-worker] --> ls
+```
 
 ```bash
-git clone <cp-infra-repo-url>
-git clone <cp-api-repo-url>   # must be sibling of cp-infra
-git clone <cp-worker-repo-url> # must be sibling of cp-infra
+# Clone all three repos as siblings
+git clone https://github.com/koss110/cp-infra
+git clone https://github.com/koss110/cp-api
+git clone https://github.com/koss110/cp-worker
 
 cd cp-infra
 
-# Start LocalStack + seed SQS, S3, SSM
+# 1. Start LocalStack and seed AWS resources
 make local-up
 
-# Build images and start the full stack
+# 2. Build images and start the full stack (api + worker + localstack)
 make local-build
 ```
 
-**Verify the stack is up:**
+**Verify:**
 ```bash
 curl http://localhost:8000/healthz
 # {"status":"healthy","service":"api","version":"local-<sha>"}
@@ -93,7 +175,7 @@ curl -s -X POST http://localhost:8000/message \
   -d '{
     "data": {
       "email_subject": "Happy new year!",
-      "email_sender": "John doe",
+      "email_sender": "John Doe",
       "email_timestream": "1693561101",
       "email_content": "Just want to say... Happy new year!!!"
     },
@@ -107,13 +189,6 @@ aws --endpoint-url=http://localhost:4566 --region us-east-2 \
   s3 ls s3://exam-costa-local-messages/messages/ --recursive
 ```
 
-**Follow logs:**
-```bash
-make logs-api       # API container
-make logs-worker    # Worker container
-make local-logs     # All containers
-```
-
 **Tear down:**
 ```bash
 make local-down
@@ -121,208 +196,155 @@ make local-down
 
 ---
 
-## Pre-commit hooks (local checks before push)
+## Make targets reference
 
-Pre-commit runs fast checks on every commit: file hygiene, ruff lint+format, secret scanning, and unit tests.
+### Bootstrap
 
-**One-time setup (in each service repo — `cp-api` and `cp-worker`):**
-```bash
-# 1. Install dev dependencies (creates .venv)
-make install
+| Target | Description |
+|--------|-------------|
+| `make bootstrap` | Create state bucket, ECR repos, DynamoDB lock table and write API token to SSM. Reads `API_TOKEN` from env var → `.env` file → interactive prompt (suggests `openssl rand -hex 32`) |
 
-# 2. Install the git hooks
-.venv/bin/pre-commit install
-```
+### Local stack
 
-**Run manually against all files:**
-```bash
-.venv/bin/pre-commit run --all-files
-```
+| Target | Description |
+|--------|-------------|
+| `make local-up` | Start LocalStack + seed SQS, S3, SSM (no app build) |
+| `make local-build` | Build cp-api and cp-worker images + start full stack |
+| `make local-down` | Stop all containers and remove volumes |
+| `make local-logs` | Follow logs for all containers |
+| `make logs-api` | Follow cp-api container logs |
+| `make logs-worker` | Follow cp-worker container logs |
+| `make logs-localstack` | Follow LocalStack container logs |
 
-**For cp-infra** (requires terraform and pre-commit installed globally or via pip):
+### Tests
+
+| Target | Description |
+|--------|-------------|
+| `make app-test` | Unit tests for both services (with coverage) |
+| `make app-test-unit` | Same as `app-test` |
+| `make app-test-integration` | Integration tests — requires `LOCALSTACK_ENDPOINT=http://localhost:4566` |
+| `make test-validate` | `terraform fmt -check` + `terraform validate` across all modules |
+| `make test-e2e` | HTTP smoke tests — requires `ALB_URL=http://<alb-dns>` |
+
+### Terraform
+
+| Target | Description |
+|--------|-------------|
+| `make tf-init` | `terraform init` with S3 backend (requires local `backend.hcl`) |
+| `make tf-plan-staging` | Plan staging with `staging.tfvars` + `image_tags.staging.tfvars` |
+| `make tf-apply-staging` | Apply staging (auto-approve) |
+| `make tf-plan-prod` | Plan production with `prod.tfvars` + `image_tags.production.tfvars` |
+| `make tf-apply-prod` | Apply production (auto-approve) |
+
+### GitHub
+
+| Target | Description |
+|--------|-------------|
+| `make branch-protection` | Apply branch protection rules to all 3 repos |
+| `make branch-protection-production` | Apply protection to `cp-infra/production` only |
+
+### Nuke (destructive)
+
+| Target | Description |
+|--------|-------------|
+| `make nuke-staging` | `terraform destroy` the staging environment |
+| `make nuke-production` | `terraform destroy` the production environment |
+| `make nuke-bootstrap` | Destroy ECR repos, state bucket, DynamoDB + delete API token from SSM |
+| `make nuke-all` | Destroy everything — prompts for confirmation |
+
+> `TF_BACKEND_BUCKET` and `TF_LOCK_TABLE` can be overridden via env var or `.env` file. Defaults to `exam-costa-terraform-state` / `exam-costa-terraform-locks`.
+
+---
+
+## Pre-commit hooks
+
+### cp-infra (this repo)
+
+Hooks run on every commit:
+
+| Hook | What it checks |
+|------|---------------|
+| `trailing-whitespace` | No trailing whitespace |
+| `end-of-file-fixer` | Files end with a newline |
+| `check-yaml` | Valid YAML syntax |
+| `check-json` | Valid JSON syntax |
+| `check-merge-conflict` | No leftover conflict markers |
+| `check-added-large-files` | No files > 500 KB |
+| `terraform_fmt` | All `.tf` files are formatted (`terraform fmt`) |
+| `detect-secrets` | No hardcoded secrets (`.tfvars` and lock files excluded) |
+
+**Setup:**
 ```bash
 pip install pre-commit==3.7.1
 pre-commit install
+```
+
+**Run manually:**
+```bash
 pre-commit run --all-files
 ```
 
----
+### cp-api / cp-worker
 
-## Running Tests
+Additional hooks in the service repos:
 
-### Unit tests (no dependencies)
+| Hook | What it checks |
+|------|---------------|
+| `ruff` | Python lint |
+| `ruff-format` | Python formatting |
+| `unit tests (fast)` | Runs unit tests on every Python file commit |
 
+**Setup (per service repo):**
 ```bash
-# From cp-infra — runs both services
-make test-unit
-
-# Or per service
-cd cp-api   && make test-unit
-cd cp-worker && make test-unit
+make pre-commit-install   # installs hooks into .git/hooks
 ```
 
-### Integration tests (requires LocalStack)
-
+**Run manually:**
 ```bash
-# Start LocalStack first
-make local-up
-
-# Then run
-LOCALSTACK_ENDPOINT=http://localhost:4566 make test-integration
-```
-
-### Terraform validation
-
-```bash
-make test-validate   # terraform fmt -check + terraform validate
-```
-
-### End-to-end smoke tests (requires deployed ALB)
-
-```bash
-ALB_URL=http://<your-alb-dns> make test-e2e
+make pre-commit-run       # runs all hooks against all files
 ```
 
 ---
 
-## CI/CD Pipeline
+## First-time AWS deployment
 
-### CI (on every push / PR)
+### 1. Bootstrap
 
-Each service repo runs automatically:
-1. `ruff` lint check
-2. Unit tests with coverage report
-
-### Release flow (triggered by git tag)
-
-```
-git tag v1.2.3 && git push --tags
-```
-
-1. **Build** — Docker image built with `VERSION=v1.2.3` baked in
-2. **Push** — Image pushed to ECR as `exam-costa-api:v1.2.3`
-3. **Staging** — `image_tags.staging.tfvars` updated in cp-infra → triggers `terraform apply` automatically
-4. **PR opened** — `cp-infra main → production` PR opened automatically
-5. **Production checks** — Terraform plan posted as PR comment + smoke tests run against staging
-6. **Production deploy** — Merge the PR → `terraform apply` deploys to production
-
-### Rollback
-
-```bash
-# Redeploy a previous tag without rebuilding
-# Go to cp-api or cp-worker → Actions → Release → Run workflow
-# Enter the old tag (e.g. v1.1.0) and uncheck "Open PR" to target staging only
-```
-
----
-
-## AWS Infrastructure (Terraform)
-
-All resources are defined in `iac/terraform/envs/eus2/` and deployed per environment.
-
-| Resource | Description |
-|----------|-------------|
-| ECS Cluster + Services | Runs cp-api and cp-worker as Fargate tasks |
-| ALB | Receives traffic and routes to cp-api |
-| SQS Queue + DLQ | Message queue between API and Worker |
-| S3 Bucket | Stores processed messages at `messages/YYYY/MM/DD/<id>.json` |
-| SSM Parameter Store | Holds API token + infrastructure output values |
-| ECR | Docker image registries for both services |
-| IAM | Task execution roles and task roles with least-privilege policies |
-
-### Deploy to AWS
-
-**Prerequisites:** AWS CLI configured with credentials that have sufficient IAM permissions.
-
-**1. Bootstrap** (run once — creates state bucket, ECR repos, DynamoDB table, and writes the API token to SSM):
 ```bash
 cd cp-infra
-
-# Option A: set the token as an env var
-API_TOKEN="your-secret-token" make bootstrap
-
-# Option B: add it to a .env file (never commit this file)
-echo 'API_TOKEN=your-secret-token' > .env
-make bootstrap
-
-# Option C: just run make bootstrap and it will prompt you
-make bootstrap
+API_TOKEN=$(openssl rand -hex 32) make bootstrap
 ```
 
-Bootstrap writes the API token to SSM as a `SecureString` at `/exam-costa/api/token`.
-The value never enters Terraform state or version control.
+Bootstraps:
+- S3 state bucket (`exam-costa-terraform-state`)
+- DynamoDB lock table (`exam-costa-terraform-locks`)
+- ECR repositories (`exam-costa-api`, `exam-costa-worker`)
+- SSM SecureString at `/exam-costa/api/token`
 
-**2. Copy the backend config** (gitignored — must be created locally):
-```bash
-cp iac/terraform/envs/eus2/backend.hcl.example iac/terraform/envs/eus2/backend.hcl
-```
+### 2. Configure GitHub Actions secrets
 
-**3. Configure GitHub Actions secrets** in all three repos (see table below).
+Add these 4 secrets to **all three repos** (cp-api, cp-worker, cp-infra):
 
-**4. Push a tag** to cp-api and cp-worker to trigger the first Docker build, ECR push, and automatic staging deploy:
+| Secret | Description |
+|--------|-------------|
+| `AWS_ACCESS_KEY_ID` | IAM access key |
+| `AWS_SECRET_ACCESS_KEY` | IAM secret key |
+| `INFRA_REPO_TOKEN` | Fine-grained PAT — cp-infra: contents + pull requests write |
+| `INFRA_REPO` | `koss110/cp-infra` |
+
+### 3. Push a tag to deploy
+
 ```bash
 cd cp-api   && git tag v1.0.0 && git push --tags
 cd cp-worker && git tag v1.0.0 && git push --tags
 ```
 
-The staging deploy runs automatically via GitHub Actions — no manual `terraform apply` needed.
+Staging deploys automatically. A PR to `production` is opened automatically.
 
-**5. Apply branch protection rules** (after the PRs from step 1 of setup are merged):
+### 4. Apply branch protection
+
 ```bash
 cd cp-infra && make branch-protection
-```
-
-### Required GitHub Actions secrets
-
-The same 4 secrets are configured globally across all three repos:
-
-| Secret | Value | Used by |
-|--------|-------|---------|
-| `AWS_ACCESS_KEY_ID` | IAM access key | all 3 repos |
-| `AWS_SECRET_ACCESS_KEY` | IAM secret key | all 3 repos |
-| `INFRA_REPO_TOKEN` | GitHub fine-grained PAT (cp-infra: contents + PRs write) | all 3 repos |
-| `INFRA_REPO` | `<owner>/cp-infra` | cp-api, cp-worker |
-
-Everything else is read dynamically at runtime — no hardcoded secrets needed:
-
-| Value | Source |
-|-------|--------|
-| API token | SSM `/exam-costa/api/token` (written by `make bootstrap`) |
-| ALB URL | SSM `/exam-costa/staging/outputs/alb_url` (written by Terraform after first apply) |
-| State bucket | Hardcoded `exam-costa-terraform-state` in workflow env vars |
-| Lock table | Hardcoded `exam-costa-terraform-locks` in workflow env vars |
-
----
-
-## Make targets reference
-
-```
-# Bootstrap (run once)
-make bootstrap         Create AWS foundations + write API token to SSM
-
-# Local stack
-make local-up          Start LocalStack + seed resources
-make local-build       Build images + start full stack
-make local-down        Stop everything and remove volumes
-make local-logs        Follow all container logs
-make logs-api          Follow API logs
-make logs-worker       Follow Worker logs
-
-# Tests
-make app-test          Unit tests for both services
-make app-test-integration  Integration tests (requires LOCALSTACK_ENDPOINT)
-make test-validate     Terraform fmt-check + validate
-make test-e2e          Smoke tests (requires ALB_URL)
-
-# Terraform
-make tf-init           terraform init with S3 backend
-make tf-plan-staging   Plan staging
-make tf-apply-staging  Apply staging
-make tf-plan-prod      Plan production
-make tf-apply-prod     Apply production
-
-# GitHub
-make branch-protection Apply branch protection rules to all 3 repos
 ```
 
 ---
@@ -332,30 +354,33 @@ make branch-protection Apply branch protection rules to all 3 repos
 ```
 cp-infra/
 ├── iac/
-│   ├── bootstrap/          # Run once — state bucket, ECR, lock table
-│   └── terraform/
-│       └── envs/eus2/      # Main environment config (staging + prod)
-│           ├── modules/    # network, alb, ecs, sqs, s3, iam, cicd
-│           ├── staging.tfvars
-│           ├── prod.tfvars
-│           └── image_tags.*.tfvars   # managed by GitHub Actions
+│   ├── bootstrap/              # Run once — state bucket, ECR, lock table
+│   ├── terraform/
+│   │   ├── envs/eus2/          # Environment config
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   ├── outputs.tf
+│   │   │   ├── staging.tfvars
+│   │   │   ├── prod.tfvars
+│   │   │   ├── image_tags.staging.tfvars       # managed by GitHub Actions
+│   │   │   └── image_tags.production.tfvars    # managed by GitHub Actions
+│   │   └── modules/
+│   │       ├── network/        # VPC, subnets, NAT, IGW
+│   │       ├── alb/            # Load balancer + target group
+│   │       ├── ecs_cluster/    # ECS cluster
+│   │       ├── ecs_service/    # ECS task definition + service
+│   │       ├── sqs/            # Queue + DLQ
+│   │       ├── s3/             # Messages bucket
+│   │       ├── iam/            # Execution + task roles
+│   │       └── ssm_parameter/  # SSM parameter wrapper
+│   └── tests/
+│       ├── terraform/          # validate.sh — fmt-check + validate
+│       └── e2e/                # test_smoke.py — HTTP smoke tests
 ├── local/
-│   ├── docker-compose.yml  # Full local stack
+│   ├── docker-compose.yml      # Full local stack
 │   └── scripts/
 │       └── bootstrap-local.sh  # Seeds LocalStack
+├── scripts/
+│   └── apply-branch-protection.sh
 └── Makefile
-
-cp-api/
-├── app/main.py             # FastAPI service
-├── tests/
-│   ├── test_main.py        # Unit tests
-│   └── integration/        # LocalStack integration tests
-└── Dockerfile
-
-cp-worker/
-├── app/worker.py           # SQS → S3 worker
-├── tests/
-│   ├── test_worker.py      # Unit tests
-│   └── integration/        # LocalStack integration tests
-└── Dockerfile
 ```

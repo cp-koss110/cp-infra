@@ -17,6 +17,9 @@ GIT_SHA      := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LOCAL_VERSION := local-$(GIT_SHA)
 
+TF_BACKEND_BUCKET := $(or $(TF_BACKEND_BUCKET),$(shell grep '^TF_BACKEND_BUCKET=' .env 2>/dev/null | cut -d= -f2-),exam-costa-terraform-state)
+TF_LOCK_TABLE     := $(or $(TF_LOCK_TABLE),$(shell grep '^TF_LOCK_TABLE=' .env 2>/dev/null | cut -d= -f2-),exam-costa-terraform-locks)
+
 # ==========================================
 # Bootstrap (run once before first deploy)
 # ==========================================
@@ -230,7 +233,7 @@ nuke-staging:
 	@echo "==> Destroying STAGING environment..."
 	$(eval TF_TOKEN := $(call get_tf_token))
 	cd $(TF_DIR) && \
-		printf 'bucket         = "exam-costa-terraform-state"\nkey            = "envs/eus2/staging/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "exam-costa-terraform-locks"\nencrypt        = true\n' > /tmp/nuke-staging.hcl && \
+		printf 'bucket         = "$(TF_BACKEND_BUCKET)"\nkey            = "envs/eus2/staging/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "$(TF_LOCK_TABLE)"\nencrypt        = true\n' > /tmp/nuke-staging.hcl && \
 		terraform init -backend-config=/tmp/nuke-staging.hcl -reconfigure && \
 		terraform destroy \
 			-var-file=staging.tfvars \
@@ -243,7 +246,7 @@ nuke-production:
 	@echo "==> Destroying PRODUCTION environment..."
 	$(eval TF_TOKEN := $(call get_tf_token))
 	cd $(TF_DIR) && \
-		printf 'bucket         = "exam-costa-terraform-state"\nkey            = "envs/eus2/production/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "exam-costa-terraform-locks"\nencrypt        = true\n' > /tmp/nuke-production.hcl && \
+		printf 'bucket         = "$(TF_BACKEND_BUCKET)"\nkey            = "envs/eus2/production/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "$(TF_LOCK_TABLE)"\nencrypt        = true\n' > /tmp/nuke-production.hcl && \
 		terraform init -backend-config=/tmp/nuke-production.hcl -reconfigure && \
 		terraform destroy \
 			-var-file=prod.tfvars \

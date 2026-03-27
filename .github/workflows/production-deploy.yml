@@ -47,7 +47,7 @@ jobs:
         run: |
           cat > backend.hcl <<EOF
           bucket         = "${{ env.TF_BACKEND_BUCKET }}"
-          key            = "envs/eus2/terraform.tfstate"
+          key            = "envs/eus2/production/terraform.tfstate"
           region         = "${{ env.AWS_REGION }}"
           dynamodb_table = "${{ env.TF_LOCK_TABLE }}"
           encrypt        = true

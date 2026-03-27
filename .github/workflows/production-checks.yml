@@ -5,6 +5,9 @@ on:
     branches:
       - production
 
+permissions:
+  pull-requests: write
+
 env:
   TF_DIR: iac/terraform/envs/eus2
   AWS_REGION: us-east-2

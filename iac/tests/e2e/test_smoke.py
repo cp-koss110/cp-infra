@@ -41,16 +41,18 @@ def test_message_requires_auth():
 
 
 def test_message_rejects_invalid_token():
-    """POST /message with wrong Bearer token must return 401."""
+    """POST /message with wrong token must return 401."""
     r = requests.post(
         f"{ALB_URL}/message",
         json={
-            "name": "Smoke Test",
-            "category": "smoke",
-            "value": 1.0,
-            "description": "Smoke test message",
+            "data": {
+                "email_subject": "Smoke test",
+                "email_sender": "smoke@test.com",
+                "email_timestream": "1693561101",
+                "email_content": "Smoke test content",
+            },
+            "token": "definitely-wrong-token",
         },
-        headers={"Authorization": "Bearer definitely-wrong-token"},
         timeout=10,
     )
     assert r.status_code == 401, f"Expected 401, got {r.status_code}: {r.text}"

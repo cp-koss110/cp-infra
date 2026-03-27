@@ -229,7 +229,9 @@ nuke-staging:
 	@echo ""
 	@echo "==> Destroying STAGING environment..."
 	$(eval TF_TOKEN := $(call get_tf_token))
-	cd $(TF_DIR) && terraform init -backend-config=backend.hcl -reconfigure && \
+	cd $(TF_DIR) && \
+		printf 'bucket         = "exam-costa-terraform-state"\nkey            = "envs/eus2/staging/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "exam-costa-terraform-locks"\nencrypt        = true\n' > /tmp/nuke-staging.hcl && \
+		terraform init -backend-config=/tmp/nuke-staging.hcl -reconfigure && \
 		terraform destroy \
 			-var-file=staging.tfvars \
 			-var-file=image_tags.staging.tfvars \
@@ -240,7 +242,9 @@ nuke-production:
 	@echo ""
 	@echo "==> Destroying PRODUCTION environment..."
 	$(eval TF_TOKEN := $(call get_tf_token))
-	cd $(TF_DIR) && terraform init -backend-config=backend.hcl -reconfigure && \
+	cd $(TF_DIR) && \
+		printf 'bucket         = "exam-costa-terraform-state"\nkey            = "envs/eus2/production/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "exam-costa-terraform-locks"\nencrypt        = true\n' > /tmp/nuke-production.hcl && \
+		terraform init -backend-config=/tmp/nuke-production.hcl -reconfigure && \
 		terraform destroy \
 			-var-file=prod.tfvars \
 			-var-file=image_tags.production.tfvars \

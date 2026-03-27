@@ -353,8 +353,8 @@ module "alb" {
   enable_deletion_protection = var.alb_enable_deletion_protection
   idle_timeout               = var.alb_idle_timeout
 
-  # Health check for API /health endpoint
-  health_check_path    = "/health"
+  # Health check for API /healthz endpoint
+  health_check_path    = "/healthz"
   health_check_matcher = "200"
 
   tags = var.tags

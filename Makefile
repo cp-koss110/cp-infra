@@ -30,7 +30,7 @@ $(shell \
 	elif [ -f .env ] && grep -q '^API_TOKEN=' .env; then \
 		grep '^API_TOKEN=' .env | cut -d= -f2-; \
 	else \
-		printf "Enter API token (will be stored in SSM as SecureString): " >&2; \
+		printf "Enter API token (or run: openssl rand -hex 32): " >&2; \
 		read -r token; \
 		echo "$$token"; \
 	fi \

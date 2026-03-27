@@ -7,6 +7,7 @@
         tf-init tf-plan-staging tf-apply-staging tf-plan-prod tf-apply-prod \
         app-test app-test-unit app-test-integration test-validate test-e2e \
         branch-protection \
+        nuke-staging nuke-production nuke-bootstrap nuke-all \
         venv-clean
 
 BOOTSTRAP_DIR := iac/bootstrap
@@ -29,7 +30,7 @@ $(shell \
 	elif [ -f .env ] && grep -q '^API_TOKEN=' .env; then \
 		grep '^API_TOKEN=' .env | cut -d= -f2-; \
 	else \
-		printf "Enter API token (will be stored in SSM as SecureString): " >&2; \
+		printf "Enter API token (will be stored in SSM as SecureString; or run: openssl rand -hex 32): " >&2; \
 		read -r token; \
 		echo "$$token"; \
 	fi \
@@ -101,6 +102,12 @@ help:
 	@echo "  GitHub:"
 	@echo "    branch-protection   apply branch protection rules to all 3 repos"
 	@echo "                        (GITHUB_OWNER=koss110 by default)"
+	@echo ""
+	@echo "  Nuke (DESTRUCTIVE — destroys real AWS resources):"
+	@echo "    nuke-staging        Destroy the staging Terraform environment"
+	@echo "    nuke-production     Destroy the production Terraform environment"
+	@echo "    nuke-bootstrap      Destroy ECR repos, state bucket, DynamoDB + delete API token"
+	@echo "    nuke-all            Destroy everything — asks for confirmation first"
 	@echo ""
 
 # ==========================================
@@ -202,3 +209,67 @@ test-e2e:
 		exit 1; \
 	fi
 	cd iac/tests/e2e && pip install -q -r requirements.txt && pytest -v
+
+# ==========================================
+# Nuke (destroy) — DESTRUCTIVE
+# Fetch the API token from SSM for the destroy plan so Terraform
+# can resolve all variables without prompting.
+# ==========================================
+
+define get_tf_token
+$(shell aws ssm get-parameter \
+	--name "/exam-costa/api/token" \
+	--with-decryption \
+	--query "Parameter.Value" \
+	--output text \
+	--region us-east-2 2>/dev/null || echo "unknown")
+endef
+
+nuke-staging:
+	@echo ""
+	@echo "==> Destroying STAGING environment..."
+	$(eval TF_TOKEN := $(call get_tf_token))
+	cd $(TF_DIR) && \
+		printf 'bucket         = "exam-costa-terraform-state"\nkey            = "envs/eus2/staging/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "exam-costa-terraform-locks"\nencrypt        = true\n' > /tmp/nuke-staging.hcl && \
+		terraform init -backend-config=/tmp/nuke-staging.hcl -reconfigure && \
+		terraform destroy \
+			-var-file=staging.tfvars \
+			-var-file=image_tags.staging.tfvars \
+			-var="api_token_value=$(TF_TOKEN)" \
+			-auto-approve
+
+nuke-production:
+	@echo ""
+	@echo "==> Destroying PRODUCTION environment..."
+	$(eval TF_TOKEN := $(call get_tf_token))
+	cd $(TF_DIR) && \
+		printf 'bucket         = "exam-costa-terraform-state"\nkey            = "envs/eus2/production/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "exam-costa-terraform-locks"\nencrypt        = true\n' > /tmp/nuke-production.hcl && \
+		terraform init -backend-config=/tmp/nuke-production.hcl -reconfigure && \
+		terraform destroy \
+			-var-file=prod.tfvars \
+			-var-file=image_tags.production.tfvars \
+			-var="api_token_value=$(TF_TOKEN)" \
+			-auto-approve
+
+nuke-bootstrap:
+	@echo ""
+	@echo "==> Removing API token from SSM..."
+	@aws ssm delete-parameter \
+		--name "/exam-costa/api/token" \
+		--region us-east-2 2>/dev/null && echo "    Token deleted." || echo "    Token not found, skipping."
+	@echo "==> Destroying BOOTSTRAP resources (ECR, S3 state bucket, DynamoDB)..."
+	cd $(BOOTSTRAP_DIR) && terraform destroy -auto-approve
+
+nuke-all:
+	@echo ""
+	@echo "+------------------------------------------------------+"
+	@echo "|  WARNING: This will destroy ALL AWS resources:       |"
+	@echo "|    - Staging/Production ECS, ALB, SQS, S3, SSM      |"
+	@echo "|    - ECR repositories (all images will be lost)      |"
+	@echo "|    - Terraform state bucket and lock table           |"
+	@echo "+------------------------------------------------------+"
+	@echo ""
+	@printf "Type 'yes' to confirm: "; read -r confirm; \
+	if [ "$$confirm" != "yes" ]; then echo "Aborted."; exit 1; fi
+	$(MAKE) nuke-staging
+	$(MAKE) nuke-bootstrap

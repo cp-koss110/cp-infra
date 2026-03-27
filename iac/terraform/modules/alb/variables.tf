@@ -104,7 +104,7 @@ variable "slow_start" {
 variable "health_check_path" {
   description = "Health check path"
   type        = string
-  default     = "/"
+  default     = "/healthz"
 }
 
 variable "health_check_protocol" {

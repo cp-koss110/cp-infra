@@ -156,7 +156,7 @@ output "quick_access" {
   description = "Quick access information"
   value = {
     api_endpoint    = "http://${module.alb.load_balancer_dns_name}"
-    health_endpoint = "http://${module.alb.load_balancer_dns_name}/health"
+    health_endpoint = "http://${module.alb.load_balancer_dns_name}/healthz"
     sqs_queue_url   = module.sqs_messages.queue_url
     s3_bucket       = module.s3_messages.bucket_name
   }

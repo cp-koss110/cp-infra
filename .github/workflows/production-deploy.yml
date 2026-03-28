@@ -16,6 +16,8 @@ jobs:
     name: Terraform Apply — Production
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -69,3 +71,57 @@ jobs:
       - name: Terraform Apply
         working-directory: ${{ env.TF_DIR }}
         run: terraform apply -auto-approve tfplan
+
+      # ---- Wait for ECS to stabilize ----
+      - name: Wait for ECS services to stabilize
+        run: |
+          CLUSTER=$(aws ssm get-parameter \
+            --name "/exam-costa/production/outputs/ecs_cluster_name" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          API_SVC=$(aws ssm get-parameter \
+            --name "/exam-costa/production/outputs/api_service_name" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          WORKER_SVC=$(aws ssm get-parameter \
+            --name "/exam-costa/production/outputs/worker_service_name" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          echo "Waiting for ECS services to reach steady state..."
+          aws ecs wait services-stable \
+            --cluster "$CLUSTER" \
+            --services "$API_SVC" "$WORKER_SVC" \
+            --region ${{ env.AWS_REGION }}
+          echo "ECS services are stable."
+
+      # ---- Post-deploy smoke tests ----
+      - name: Smoke tests — production
+        run: |
+          ALB_URL=$(aws ssm get-parameter \
+            --name "/exam-costa/production/outputs/alb_url" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          echo "Running smoke tests against $ALB_URL"
+          python3 -m pip install -q -r iac/tests/e2e/requirements.txt
+          ALB_URL="$ALB_URL" python3 -m pytest iac/tests/e2e -v
+
+      # ---- Create GitHub Release ----
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          API_TAG=$(grep 'api_image_tag' ${{ env.TF_DIR }}/image_tags.production.tfvars | cut -d'"' -f2)
+          WORKER_TAG=$(grep 'worker_image_tag' ${{ env.TF_DIR }}/image_tags.production.tfvars | cut -d'"' -f2)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          DEPLOY_TAG="production/$(date -u +%Y-%m-%d)-${SHORT_SHA}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$DEPLOY_TAG"
+          git push origin "$DEPLOY_TAG"
+          gh release create "$DEPLOY_TAG" \
+            --title "Production deploy — $(date -u +%Y-%m-%d)" \
+            --notes "## Deployed to production
+
+          | Service | Image tag |
+          |---------|-----------|
+          | api     | \`${API_TAG}\` |
+          | worker  | \`${WORKER_TAG}\` |
+
+          **Infra commit:** \`${SHORT_SHA}\`
+          **Triggered by:** \`${{ github.actor }}\`"

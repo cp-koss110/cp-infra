@@ -749,6 +749,80 @@ resource "aws_cloudwatch_dashboard" "main" {
             ["AWS/SQS", "NumberOfMessagesDeleted", "QueueName", module.sqs_messages.queue_name, { label = "deleted (processed)" }]
           ]
         }
+      },
+      # ---- GitHub Actions ----
+      {
+        type   = "metric"
+        x      = 0
+        y      = 18
+        width  = 12
+        height = 6
+        properties = {
+          title  = "GitHub Actions — Workflow Runs"
+          region = var.aws_region
+          view   = "timeSeries"
+          stat   = "Sum"
+          period = 300
+          metrics = [
+            ["GitHub/Actions", "WorkflowRun", "Repository", "${var.github_owner}/cp-api", "Workflow", "CI", { label = "cp-api / CI" }],
+            ["GitHub/Actions", "WorkflowRun", "Repository", "${var.github_owner}/cp-api", "Workflow", "Release", { label = "cp-api / Release" }],
+            ["GitHub/Actions", "WorkflowRun", "Repository", "${var.github_owner}/cp-worker", "Workflow", "CI", { label = "cp-worker / CI" }],
+            ["GitHub/Actions", "WorkflowRun", "Repository", "${var.github_owner}/cp-worker", "Workflow", "Release", { label = "cp-worker / Release" }],
+            ["GitHub/Actions", "WorkflowRun", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Staging Deploy", { label = "cp-infra / Staging Deploy" }],
+            ["GitHub/Actions", "WorkflowRun", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Production Deploy", { label = "cp-infra / Production Deploy" }],
+            ["GitHub/Actions", "WorkflowRun", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Staging PR Checks", { label = "cp-infra / Staging PR Checks" }],
+            ["GitHub/Actions", "WorkflowRun", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Production PR Checks", { label = "cp-infra / Production PR Checks" }]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 18
+        width  = 12
+        height = 6
+        properties = {
+          title  = "GitHub Actions — Success Rate"
+          region = var.aws_region
+          view   = "timeSeries"
+          stat   = "Average"
+          period = 300
+          yAxis  = { left = { min = 0, max = 1 } }
+          metrics = [
+            ["GitHub/Actions", "WorkflowSuccess", "Repository", "${var.github_owner}/cp-api", "Workflow", "CI", { label = "cp-api / CI" }],
+            ["GitHub/Actions", "WorkflowSuccess", "Repository", "${var.github_owner}/cp-api", "Workflow", "Release", { label = "cp-api / Release" }],
+            ["GitHub/Actions", "WorkflowSuccess", "Repository", "${var.github_owner}/cp-worker", "Workflow", "CI", { label = "cp-worker / CI" }],
+            ["GitHub/Actions", "WorkflowSuccess", "Repository", "${var.github_owner}/cp-worker", "Workflow", "Release", { label = "cp-worker / Release" }],
+            ["GitHub/Actions", "WorkflowSuccess", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Staging Deploy", { label = "cp-infra / Staging Deploy" }],
+            ["GitHub/Actions", "WorkflowSuccess", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Production Deploy", { label = "cp-infra / Production Deploy" }],
+            ["GitHub/Actions", "WorkflowSuccess", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Staging PR Checks", { label = "cp-infra / Staging PR Checks" }],
+            ["GitHub/Actions", "WorkflowSuccess", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Production PR Checks", { label = "cp-infra / Production PR Checks" }]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 24
+        width  = 24
+        height = 6
+        properties = {
+          title  = "GitHub Actions — Duration (seconds)"
+          region = var.aws_region
+          view   = "timeSeries"
+          stat   = "Average"
+          period = 300
+          metrics = [
+            ["GitHub/Actions", "WorkflowDuration", "Repository", "${var.github_owner}/cp-api", "Workflow", "CI", { label = "cp-api / CI" }],
+            ["GitHub/Actions", "WorkflowDuration", "Repository", "${var.github_owner}/cp-api", "Workflow", "Release", { label = "cp-api / Release" }],
+            ["GitHub/Actions", "WorkflowDuration", "Repository", "${var.github_owner}/cp-worker", "Workflow", "CI", { label = "cp-worker / CI" }],
+            ["GitHub/Actions", "WorkflowDuration", "Repository", "${var.github_owner}/cp-worker", "Workflow", "Release", { label = "cp-worker / Release" }],
+            ["GitHub/Actions", "WorkflowDuration", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Staging Deploy", { label = "cp-infra / Staging Deploy" }],
+            ["GitHub/Actions", "WorkflowDuration", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Production Deploy", { label = "cp-infra / Production Deploy" }],
+            ["GitHub/Actions", "WorkflowDuration", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Staging PR Checks", { label = "cp-infra / Staging PR Checks" }],
+            ["GitHub/Actions", "WorkflowDuration", "Repository", "${var.github_owner}/cp-infra", "Workflow", "Production PR Checks", { label = "cp-infra / Production PR Checks" }]
+          ]
+        }
       }
     ]
   })

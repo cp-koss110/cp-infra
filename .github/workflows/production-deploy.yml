@@ -97,9 +97,16 @@ jobs:
           ALB_URL=$(aws ssm get-parameter \
             --name "/exam-costa/production/outputs/alb_url" \
             --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          S3_BUCKET=$(aws ssm get-parameter \
+            --name "/exam-costa/production/outputs/s3_bucket_name" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
           echo "Running smoke tests against $ALB_URL"
           python3 -m pip install -q -r iac/tests/e2e/requirements.txt
-          ALB_URL="$ALB_URL" python3 -m pytest iac/tests/e2e -v
+          ALB_URL="$ALB_URL" \
+          API_TOKEN="${{ env.TF_API_TOKEN }}" \
+          S3_BUCKET_NAME="$S3_BUCKET" \
+          AWS_REGION="${{ env.AWS_REGION }}" \
+          python3 -m pytest iac/tests/e2e -v
 
       # ---- Create GitHub Release ----
       - name: Create GitHub Release

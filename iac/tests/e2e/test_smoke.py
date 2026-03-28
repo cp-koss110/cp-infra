@@ -8,11 +8,17 @@ Tests are skipped when ALB_URL is not set.
 """
 
 import os
+import time
+from datetime import datetime, timezone
 
+import boto3
 import pytest
 import requests
 
-ALB_URL = os.environ.get("ALB_URL", "").rstrip("/")
+ALB_URL     = os.environ.get("ALB_URL", "").rstrip("/")
+API_TOKEN   = os.environ.get("API_TOKEN", "")
+S3_BUCKET   = os.environ.get("S3_BUCKET_NAME", "")
+AWS_REGION  = os.environ.get("AWS_REGION", "us-east-2")
 
 pytestmark = pytest.mark.skipif(
     not ALB_URL,
@@ -64,3 +70,50 @@ def test_health_returns_service_name():
     assert r.status_code == 200
     body = r.json()
     assert body.get("service") == "api", f"Unexpected service field: {body}"
+
+
+def test_message_end_to_end():
+    """Send a valid message and verify the worker uploads it to S3 within 60s."""
+    if not API_TOKEN:
+        pytest.skip("API_TOKEN not set — skipping end-to-end write test")
+    if not S3_BUCKET:
+        pytest.skip("S3_BUCKET_NAME not set — skipping end-to-end write test")
+
+    sent_at = datetime.now(timezone.utc)
+    date_prefix = sent_at.strftime("%Y/%m/%d")
+    s3_prefix = f"messages/{date_prefix}/"
+
+    # Send a real message with the valid token
+    r = requests.post(
+        f"{ALB_URL}/message",
+        json={
+            "data": {
+                "email_subject": "E2E smoke test",
+                "email_sender": "smoke@test.com",
+                "email_timestream": str(int(sent_at.timestamp())),
+                "email_content": f"E2E test sent at {sent_at.isoformat()}",
+            },
+            "token": API_TOKEN,
+        },
+        timeout=10,
+    )
+    assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
+
+    # Poll S3 for up to 60s for a new object that appeared after we sent the message
+    s3 = boto3.client("s3", region_name=AWS_REGION)
+    deadline = time.time() + 60
+    found_key = None
+    while time.time() < deadline:
+        resp = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=s3_prefix)
+        for obj in resp.get("Contents", []):
+            if obj["LastModified"].replace(tzinfo=timezone.utc) >= sent_at:
+                found_key = obj["Key"]
+                break
+        if found_key:
+            break
+        time.sleep(5)
+
+    assert found_key, (
+        f"No S3 object found under s3://{S3_BUCKET}/{s3_prefix} within 60s — "
+        "worker may not be running or SQS delivery is delayed"
+    )

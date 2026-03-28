@@ -76,13 +76,13 @@ jobs:
       - name: Wait for ECS services to stabilize
         run: |
           CLUSTER=$(aws ssm get-parameter \
-            --name "/exam-costa/production/outputs/ecs_cluster_name" \
+            --name "/exam-costa/prod/outputs/ecs_cluster_name" \
             --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
           API_SVC=$(aws ssm get-parameter \
-            --name "/exam-costa/production/outputs/api_service_name" \
+            --name "/exam-costa/prod/outputs/api_service_name" \
             --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
           WORKER_SVC=$(aws ssm get-parameter \
-            --name "/exam-costa/production/outputs/worker_service_name" \
+            --name "/exam-costa/prod/outputs/worker_service_name" \
             --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
           echo "Waiting for ECS services to reach steady state..."
           aws ecs wait services-stable \
@@ -95,10 +95,10 @@ jobs:
       - name: Smoke tests — production
         run: |
           ALB_URL=$(aws ssm get-parameter \
-            --name "/exam-costa/production/outputs/alb_url" \
+            --name "/exam-costa/prod/outputs/alb_url" \
             --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
           S3_BUCKET=$(aws ssm get-parameter \
-            --name "/exam-costa/production/outputs/s3_bucket_name" \
+            --name "/exam-costa/prod/outputs/s3_bucket_name" \
             --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
           echo "Running smoke tests against $ALB_URL"
           python3 -m pip install -q -r iac/tests/e2e/requirements.txt

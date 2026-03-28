@@ -5,7 +5,7 @@
         bootstrap \
         local-up local-build local-down local-logs logs-api logs-worker logs-localstack \
         tf-init tf-plan-staging tf-apply-staging tf-plan-prod tf-apply-prod \
-        app-test app-test-unit app-test-integration test-validate test-e2e \
+        app-test app-test-unit app-test-integration test-validate test-e2e install-e2e \
         branch-protection branch-protection-production \
         nuke-staging nuke-production nuke-bootstrap nuke-all \
         venv-clean
@@ -19,6 +19,11 @@ LOCAL_VERSION := local-$(GIT_SHA)
 
 TF_BACKEND_BUCKET := $(or $(TF_BACKEND_BUCKET),$(shell grep '^TF_BACKEND_BUCKET=' .env 2>/dev/null | cut -d= -f2-),exam-costa-terraform-state)
 TF_LOCK_TABLE     := $(or $(TF_LOCK_TABLE),$(shell grep '^TF_LOCK_TABLE=' .env 2>/dev/null | cut -d= -f2-),exam-costa-terraform-locks)
+
+E2E_ENV    := $(or $(ENV),staging)
+E2E_DIR    := iac/tests/e2e
+E2E_VENV   := $(E2E_DIR)/.venv
+E2E_PYTEST := $(E2E_VENV)/bin/pytest
 
 # ==========================================
 # Bootstrap (run once before first deploy)
@@ -99,8 +104,11 @@ help:
 	@echo "    venv-clean            remove .venv from cp-api and cp-worker"
 	@echo ""
 	@echo "  Infra tests:"
-	@echo "    test-validate     terraform fmt-check + validate"
-	@echo "    test-e2e          smoke tests (requires ALB_URL env var)"
+	@echo "    test-validate          terraform fmt-check + validate"
+	@echo "    install-e2e            create venv + install e2e test dependencies"
+	@echo "    test-e2e               smoke tests — ALB_URL auto-fetched from SSM (staging)"
+	@echo "    test-e2e ENV=production smoke tests against production ALB"
+	@echo "    test-e2e ALB_URL=http://... override ALB_URL manually"
 	@echo ""
 	@echo "  GitHub:"
 	@echo "    branch-protection              apply branch protection rules to all 3 repos"
@@ -238,13 +246,26 @@ branch-protection-production:
 test-validate:
 	./iac/tests/terraform/validate.sh
 
-test-e2e:
-	@if [ -z "$(ALB_URL)" ]; then \
-		echo "ERROR: ALB_URL is not set. Export it first:"; \
-		echo "  export ALB_URL=http://your-alb.us-east-2.elb.amazonaws.com"; \
+$(E2E_VENV)/bin/activate: $(E2E_DIR)/requirements.txt
+	python3 -m venv $(E2E_VENV)
+	$(E2E_VENV)/bin/pip install -q -r $(E2E_DIR)/requirements.txt
+	touch $(E2E_VENV)/bin/activate
+
+install-e2e: $(E2E_VENV)/bin/activate
+
+test-e2e: install-e2e
+	$(eval _ALB_URL := $(or $(ALB_URL),$(shell aws ssm get-parameter \
+		--name "/exam-costa/$(E2E_ENV)/outputs/alb_url" \
+		--query "Parameter.Value" \
+		--output text \
+		--region us-east-2 2>/dev/null)))
+	@if [ -z "$(_ALB_URL)" ]; then \
+		echo "ERROR: Could not resolve ALB_URL from SSM (/exam-costa/$(E2E_ENV)/outputs/alb_url)."; \
+		echo "  Ensure AWS credentials are set, or pass ALB_URL=http://... explicitly."; \
 		exit 1; \
 	fi
-	cd iac/tests/e2e && pip install -q -r requirements.txt && pytest -v
+	@echo "==> Running smoke tests against [$(_ALB_URL)] ($(E2E_ENV))"
+	ALB_URL=$(_ALB_URL) $(E2E_PYTEST) $(E2E_DIR) -v
 
 # ==========================================
 # Nuke (destroy) — DESTRUCTIVE

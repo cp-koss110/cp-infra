@@ -254,15 +254,13 @@ $(E2E_VENV)/bin/activate: $(E2E_DIR)/requirements.txt
 install-e2e: $(E2E_VENV)/bin/activate
 
 test-e2e: install-e2e
-	@_ENV="$(E2E_ENV)"; \
-	[ "$$_ENV" = "production" ] && _ENV="prod"; \
-	[ -n "$$ALB_URL" ] && _ALB_URL="$$ALB_URL" || \
+	@[ -n "$$ALB_URL" ] && _ALB_URL="$$ALB_URL" || \
 		_ALB_URL=$$(aws ssm get-parameter \
-			--name "/exam-costa/$$_ENV/outputs/alb_url" \
+			--name "/exam-costa/$(E2E_ENV)/outputs/alb_url" \
 			--query "Parameter.Value" --output text --region us-east-2 2>/dev/null) || true; \
 	[ -n "$$S3_BUCKET_NAME" ] && _S3_BUCKET="$$S3_BUCKET_NAME" || \
 		_S3_BUCKET=$$(aws ssm get-parameter \
-			--name "/exam-costa/$$_ENV/outputs/s3_bucket_name" \
+			--name "/exam-costa/$(E2E_ENV)/outputs/s3_bucket_name" \
 			--query "Parameter.Value" --output text --region us-east-2 2>/dev/null) || true; \
 	[ -n "$$API_TOKEN" ] && _API_TOKEN="$$API_TOKEN" || \
 		_API_TOKEN=$$(aws ssm get-parameter \
@@ -270,11 +268,11 @@ test-e2e: install-e2e
 			--with-decryption \
 			--query "Parameter.Value" --output text --region us-east-2 2>/dev/null) || true; \
 	if [ -z "$$_ALB_URL" ]; then \
-		echo "ERROR: Could not resolve ALB_URL from SSM (/exam-costa/$$_ENV/outputs/alb_url)."; \
+		echo "ERROR: Could not resolve ALB_URL from SSM (/exam-costa/$(E2E_ENV)/outputs/alb_url)."; \
 		echo "  Ensure AWS credentials are set, or pass ALB_URL=http://... explicitly."; \
 		exit 1; \
 	fi; \
-	echo "==> Running smoke tests against [$$_ALB_URL] ($$_ENV)"; \
+	echo "==> Running smoke tests against [$$_ALB_URL] ($(E2E_ENV))"; \
 	ALB_URL="$$_ALB_URL" \
 	S3_BUCKET_NAME="$$_S3_BUCKET" \
 	API_TOKEN="$$_API_TOKEN" \

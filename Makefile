@@ -98,7 +98,7 @@ help:
 	@echo "    logs-monitoring        Follow all monitoring container logs"
 	@echo "    logs-grafana           Follow Grafana logs"
 	@echo "    logs-prometheus        Follow Prometheus logs"
-	@echo "    Grafana:    http://localhost:3000  (admin/admin)"
+	@echo "    Grafana:    http://localhost:3000  (admin/grafana)"
 	@echo "    Prometheus: http://localhost:9090"
 	@echo ""
 	@echo "  Terraform:"

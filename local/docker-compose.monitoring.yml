@@ -6,7 +6,7 @@ version: "3.8"
 #   make local-monitoring-up    — start monitoring stack
 #   make local-monitoring-down  — stop and remove monitoring stack
 #
-# Grafana:    http://localhost:3000  (admin / admin)
+# Grafana:    http://localhost:3000  (admin / grafana)
 # Prometheus: http://localhost:9090
 # Node Exp:   http://localhost:9100/metrics
 #
@@ -49,9 +49,14 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      # Use any non-"admin" value to skip the forced change-password prompt on first login
+      - GF_SECURITY_ADMIN_PASSWORD=grafana
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/node-exporter-full.json
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/exam-costa.json
+      # AWS creds for CloudWatch datasource — fall back to "test" when not set locally
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-2}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro

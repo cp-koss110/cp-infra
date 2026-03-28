@@ -163,7 +163,7 @@ local-monitoring-up:
 	done
 	@echo ""
 	@echo "Monitoring stack is up:"
-	@echo "  Grafana:    http://localhost:3000  (admin / admin)"
+	@echo "  Grafana:    http://localhost:3000  (admin / grafana)"
 	@echo "  Prometheus: http://localhost:9090"
 	@echo "  Node Exp:   http://localhost:9100/metrics"
 	@echo ""

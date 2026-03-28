@@ -72,7 +72,7 @@ alb_idle_timeout               = 60
 # ==========================================
 # ECS Configuration
 # ==========================================
-ecs_enable_container_insights = false
+ecs_enable_container_insights = true
 
 api_desired_count = 1   # Minimum for exam
 api_cpu           = 256 # 0.25 vCPU
@@ -92,8 +92,9 @@ log_retention_days = 30 # Keep logs for 30 days in prod
 # ==========================================
 # Monitoring Configuration
 # ==========================================
-enable_alarms           = false
-enable_pipeline_metrics = false # No CodeBuild pipelines — using GitHub Actions
+enable_cloudwatch_monitoring = true
+enable_alarms                = true
+enable_pipeline_metrics      = false # No CodeBuild pipelines — using GitHub Actions
 
 # ==========================================
 # CI/CD Configuration (from bootstrap outputs)

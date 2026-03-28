@@ -278,8 +278,14 @@ variable "log_retention_days" {
 # ==========================================
 # Monitoring Configuration
 # ==========================================
+variable "enable_cloudwatch_monitoring" {
+  description = "Master toggle: enable CloudWatch dashboard, alarms, and Container Insights"
+  type        = bool
+  default     = true
+}
+
 variable "enable_alarms" {
-  description = "Enable CloudWatch alarms"
+  description = "Enable CloudWatch alarms (overridden to true when enable_cloudwatch_monitoring = true)"
   type        = bool
   default     = true
 }

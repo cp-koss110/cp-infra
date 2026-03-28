@@ -74,7 +74,7 @@ alb_idle_timeout               = 60
 # ==========================================
 # ECS Configuration — smaller sizes for staging
 # ==========================================
-ecs_enable_container_insights = false # Save cost in staging
+ecs_enable_container_insights = true
 
 api_desired_count = 1   # Single instance in staging
 api_cpu           = 256 # 0.25 vCPU
@@ -89,9 +89,10 @@ log_level            = "INFO"
 # ==========================================
 # Logging / Monitoring
 # ==========================================
-log_retention_days      = 7     # Shorter retention in staging
-enable_alarms           = false # No alarms in staging
-enable_pipeline_metrics = false
+log_retention_days           = 7
+enable_cloudwatch_monitoring = true
+enable_alarms                = true
+enable_pipeline_metrics      = false
 
 # ==========================================
 # CI/CD Configuration

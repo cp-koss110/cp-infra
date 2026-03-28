@@ -642,6 +642,124 @@ resource "aws_cloudwatch_metric_alarm" "sqs_queue_depth" {
 }
 
 # ==========================================
+# CloudWatch Dashboard
+# ==========================================
+resource "aws_cloudwatch_dashboard" "main" {
+  count          = var.enable_cloudwatch_monitoring ? 1 : 0
+  dashboard_name = local.project_prefix
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type   = "metric"
+        x      = 0
+        y      = 0
+        width  = 12
+        height = 6
+        properties = {
+          title  = "ECS CPU Utilization (%)"
+          region = var.aws_region
+          view   = "timeSeries"
+          stat   = "Average"
+          period = 60
+          metrics = [
+            ["AWS/ECS", "CPUUtilization", "ClusterName", module.ecs_cluster.cluster_name, "ServiceName", module.ecs_service_api.service_name, { label = "api" }],
+            ["AWS/ECS", "CPUUtilization", "ClusterName", module.ecs_cluster.cluster_name, "ServiceName", module.ecs_service_worker.service_name, { label = "worker" }]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 0
+        width  = 12
+        height = 6
+        properties = {
+          title  = "ECS Memory Utilization (%)"
+          region = var.aws_region
+          view   = "timeSeries"
+          stat   = "Average"
+          period = 60
+          metrics = [
+            ["AWS/ECS", "MemoryUtilization", "ClusterName", module.ecs_cluster.cluster_name, "ServiceName", module.ecs_service_api.service_name, { label = "api" }],
+            ["AWS/ECS", "MemoryUtilization", "ClusterName", module.ecs_cluster.cluster_name, "ServiceName", module.ecs_service_worker.service_name, { label = "worker" }]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          title  = "ALB Request Count"
+          region = var.aws_region
+          view   = "timeSeries"
+          stat   = "Sum"
+          period = 60
+          metrics = [
+            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", module.alb.load_balancer_arn_suffix]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          title  = "ALB 5xx Errors"
+          region = var.aws_region
+          view   = "timeSeries"
+          stat   = "Sum"
+          period = 60
+          metrics = [
+            ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", module.alb.load_balancer_arn_suffix]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 12
+        width  = 12
+        height = 6
+        properties = {
+          title  = "SQS Messages Visible"
+          region = var.aws_region
+          view   = "timeSeries"
+          stat   = "Average"
+          period = 60
+          metrics = [
+            ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", module.sqs_messages.queue_name]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 12
+        width  = 12
+        height = 6
+        properties = {
+          title  = "SQS Messages Sent vs Deleted"
+          region = var.aws_region
+          view   = "timeSeries"
+          stat   = "Sum"
+          period = 60
+          metrics = [
+            ["AWS/SQS", "NumberOfMessagesSent", "QueueName", module.sqs_messages.queue_name, { label = "sent" }],
+            ["AWS/SQS", "NumberOfMessagesDeleted", "QueueName", module.sqs_messages.queue_name, { label = "deleted (processed)" }]
+          ]
+        }
+      }
+    ]
+  })
+}
+
+# ==========================================
 # ECR Enhanced Scanning (Amazon Inspector) — optional
 # Enables deep vulnerability scanning on all ECR images in the account.
 # Requires Inspector to be enabled. Cost: per-image scan fee.

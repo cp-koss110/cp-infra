@@ -4,7 +4,7 @@
 .PHONY: help \
         bootstrap \
         local-up local-build local-down local-logs logs-api logs-worker logs-localstack \
-        local-monitoring-up local-monitoring-down \
+        local-monitoring-up local-monitoring-down logs-monitoring \
         tf-init tf-plan-staging tf-apply-staging tf-plan-prod tf-apply-prod \
         app-test app-test-unit app-test-integration test-validate test-e2e install-e2e \
         branch-protection branch-protection-production \
@@ -95,7 +95,10 @@ help:
 	@echo "  Local monitoring (optional):"
 	@echo "    local-monitoring-up    Start Prometheus + Grafana + Node Exporter"
 	@echo "    local-monitoring-down  Stop monitoring stack"
-	@echo "    Grafana:    http://localhost:3001  (admin/admin)"
+	@echo "    logs-monitoring        Follow all monitoring container logs"
+	@echo "    logs-grafana           Follow Grafana logs"
+	@echo "    logs-prometheus        Follow Prometheus logs"
+	@echo "    Grafana:    http://localhost:3000  (admin/grafana)"
 	@echo "    Prometheus: http://localhost:9090"
 	@echo ""
 	@echo "  Terraform:"
@@ -153,19 +156,27 @@ local-down:
 
 local-monitoring-up:
 	$(COMPOSE_MONITORING) up -d
+	@echo "Waiting for Grafana to be ready..."
+	@for i in $$(seq 1 30); do \
+		curl -sf http://localhost:3000/api/health > /dev/null 2>&1 && break; \
+		sleep 2; \
+	done
 	@echo ""
 	@echo "Monitoring stack is up:"
-	@echo "  Grafana:    http://localhost:3001  (admin / admin)"
+	@echo "  Grafana:    http://localhost:3000  (admin / grafana)"
 	@echo "  Prometheus: http://localhost:9090"
 	@echo "  Node Exp:   http://localhost:9100/metrics"
 	@echo ""
-	@echo "Import a dashboard in Grafana: Dashboards → Import → ID 1860 (Node Exporter Full)"
+	@echo "Node Exporter Full dashboard is pre-loaded — open Grafana and it will be on the home screen."
 
 local-monitoring-down:
 	$(COMPOSE_MONITORING) down -v
 
 local-logs:
 	$(COMPOSE) logs -f
+
+logs-monitoring:
+	$(COMPOSE_MONITORING) logs -f
 
 logs-api:
 	docker logs -f exam-costa-api
@@ -175,6 +186,12 @@ logs-worker:
 
 logs-localstack:
 	docker logs -f exam-costa-localstack
+
+logs-grafana:
+	docker logs -f exam-costa-grafana
+
+logs-prometheus:
+	docker logs -f exam-costa-prometheus
 
 # ==========================================
 # Terraform

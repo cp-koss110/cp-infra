@@ -210,7 +210,7 @@ make local-monitoring-up
 
 | Service | URL |
 |---------|-----|
-| Grafana | http://localhost:3001 — login: `admin` / `admin` |
+| Grafana | http://localhost:3000 — login: `admin` / `admin` |
 | Prometheus | http://localhost:9090 |
 | Node Exporter | http://localhost:9100/metrics |
 

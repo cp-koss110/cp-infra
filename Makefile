@@ -259,13 +259,28 @@ test-e2e: install-e2e
 		--query "Parameter.Value" \
 		--output text \
 		--region us-east-2 2>/dev/null)))
+	$(eval _S3_BUCKET := $(or $(S3_BUCKET_NAME),$(shell aws ssm get-parameter \
+		--name "/exam-costa/$(E2E_ENV)/outputs/s3_bucket_name" \
+		--query "Parameter.Value" \
+		--output text \
+		--region us-east-2 2>/dev/null)))
+	$(eval _API_TOKEN := $(or $(API_TOKEN),$(shell aws ssm get-parameter \
+		--name "/exam-costa/api/token" \
+		--with-decryption \
+		--query "Parameter.Value" \
+		--output text \
+		--region us-east-2 2>/dev/null)))
 	@if [ -z "$(_ALB_URL)" ]; then \
 		echo "ERROR: Could not resolve ALB_URL from SSM (/exam-costa/$(E2E_ENV)/outputs/alb_url)."; \
 		echo "  Ensure AWS credentials are set, or pass ALB_URL=http://... explicitly."; \
 		exit 1; \
 	fi
 	@echo "==> Running smoke tests against [$(_ALB_URL)] ($(E2E_ENV))"
-	ALB_URL=$(_ALB_URL) $(E2E_PYTEST) $(E2E_DIR) -v
+	ALB_URL=$(_ALB_URL) \
+	S3_BUCKET_NAME=$(_S3_BUCKET) \
+	API_TOKEN=$(_API_TOKEN) \
+	AWS_REGION=us-east-2 \
+	$(E2E_PYTEST) $(E2E_DIR) -v
 
 # ==========================================
 # Nuke (destroy) — DESTRUCTIVE

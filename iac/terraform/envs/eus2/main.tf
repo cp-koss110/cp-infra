@@ -323,15 +323,10 @@ module "iam_worker_task_role" {
 # ==========================================
 # SSM Parameter for API Token
 # ==========================================
-module "ssm_api_token" {
-  source = "../../modules/ssm_parameter"
-
-  parameter_name  = "/${var.project_name}/api/token"
-  parameter_value = var.api_token_value != "" ? var.api_token_value : "CHANGE_ME_IN_SSM"
-  parameter_type  = "SecureString"
-  description     = "API validation token for ${var.project_name}"
-
-  tags = var.tags
+# Token is created by `make bootstrap` — Terraform reads it as a data source.
+# This prevents `terraform destroy` on one environment from deleting the shared secret.
+data "aws_ssm_parameter" "api_token" {
+  name = "/${var.project_name}/${var.environment}/api/token"
 }
 
 # ==========================================
@@ -489,7 +484,7 @@ module "ecs_service_api" {
     ENVIRONMENT        = var.environment
     AWS_REGION         = var.aws_region
     SQS_QUEUE_URL      = module.sqs_messages.queue_url
-    SSM_PARAMETER_NAME = module.ssm_api_token.parameter_name
+    SSM_PARAMETER_NAME = data.aws_ssm_parameter.api_token.name
     LOG_LEVEL          = var.log_level
   }
 
@@ -785,7 +780,7 @@ resource "aws_ecr_registry_scanning_configuration" "enhanced" {
 # Three pipelines:
 #   1. Branch CI  — any non-main branch: lint + basic tests + Bandit + build + push
 #   2. Main CI    — main branch: full tests + Bandit + build + push + optional dev update
-#   3. Tag/Promote — semver tag: promote existing image or build, then update prod.tfvars
+#   3. Tag/Promote — semver tag: promote existing image or build, then update production.tfvars
 #
 # Enable with: enable_app_pipeline = true
 # ==========================================
@@ -885,7 +880,7 @@ module "codebuild_app_tag" {
   source = "../../modules/codebuild"
 
   project_name     = "${local.project_prefix}-app-tag"
-  description      = "App release: promote image by retagging, commit image_tag to infra prod.tfvars"
+  description      = "App release: promote image by retagging, commit image_tag to infra production.tfvars"
   service_role_arn = var.codebuild_role_arn
   buildspec_path   = "buildspec/tag-promote.yml"
   source_type      = "CODECOMMIT"
@@ -1105,7 +1100,7 @@ module "codebuild_tf_plan" {
     TF_BACKEND_REGION = var.aws_region
     TF_LOCK_TABLE     = var.tf_lock_table
     TF_ENVIRONMENT    = var.environment
-    # TF_VAR_api_token_value is injected via PARAMETER_STORE in the buildspec
+    # API token is managed by bootstrap, read via data.aws_ssm_parameter.api_token
   }
 
   tags = var.tags
@@ -1195,5 +1190,18 @@ resource "aws_ssm_parameter" "infra_output" {
 
   tags = merge(var.tags, {
     Name = "/${var.project_name}/${var.environment}/outputs/${each.key}"
+  })
+}
+
+resource "aws_ssm_parameter" "cloudwatch_dashboard_url" {
+  count = var.enable_cloudwatch_monitoring ? 1 : 0
+
+  name      = "/${var.project_name}/${var.environment}/outputs/cloudwatch_dashboard_url"
+  type      = "String"
+  value     = "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.main[0].dashboard_name}"
+  overwrite = true
+
+  tags = merge(var.tags, {
+    Name = "/${var.project_name}/${var.environment}/outputs/cloudwatch_dashboard_url"
   })
 }

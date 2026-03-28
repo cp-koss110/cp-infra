@@ -210,7 +210,7 @@ make local-monitoring-up
 
 | Service | URL |
 |---------|-----|
-| Grafana | http://localhost:3001 — login: `admin` / `admin` |
+| Grafana | http://localhost:3000 — login: `admin` / `admin` |
 | Prometheus | http://localhost:9090 |
 | Node Exporter | http://localhost:9100/metrics |
 
@@ -259,7 +259,7 @@ make local-monitoring-down   # stop + remove volumes
 | `make test-validate` | `terraform fmt -check` + `terraform validate` across all modules |
 | `make install-e2e` | Create `iac/tests/e2e/.venv` and install test dependencies |
 | `make test-e2e` | Smoke tests against staging — ALB URL, API token, S3 bucket auto-fetched from SSM |
-| `make test-e2e ENV=prod` | Same against production |
+| `make test-e2e ENV=production` | Same against production |
 | `make test-e2e ALB_URL=http://...` | Manual ALB override |
 
 ### Terraform
@@ -269,8 +269,8 @@ make local-monitoring-down   # stop + remove volumes
 | `make tf-init` | `terraform init` with S3 backend (requires local `backend.hcl`) |
 | `make tf-plan-staging` | Plan staging with `staging.tfvars` + `image_tags.staging.tfvars` |
 | `make tf-apply-staging` | Apply staging (auto-approve) |
-| `make tf-plan-prod` | Plan production with `prod.tfvars` + `image_tags.production.tfvars` |
-| `make tf-apply-prod` | Apply production (auto-approve) |
+| `make tf-plan-production` | Plan production with `production.tfvars` + `image_tags.production.tfvars` |
+| `make tf-apply-production` | Apply production (auto-approve) |
 
 ### GitHub
 
@@ -397,7 +397,7 @@ cp-infra/
 │   │   │   ├── variables.tf
 │   │   │   ├── outputs.tf
 │   │   │   ├── staging.tfvars
-│   │   │   ├── prod.tfvars
+│   │   │   ├── production.tfvars
 │   │   │   ├── image_tags.staging.tfvars       # managed by GitHub Actions
 │   │   │   └── image_tags.production.tfvars    # managed by GitHub Actions
 │   │   └── modules/

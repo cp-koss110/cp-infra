@@ -38,7 +38,7 @@ Located in `cp-infra/.github/workflows/`:
 |------|---------|---------|
 | `staging-deploy.yml` | push to `main` | `terraform apply` with `staging.tfvars` |
 | `production-checks.yml` | PR targeting `production` | fmt check, validate, plan, smoke tests |
-| `production-deploy.yml` | push to `production` | `terraform apply` with `prod.tfvars` |
+| `production-deploy.yml` | push to `production` | `terraform apply` with `production.tfvars` |
 
 ---
 
@@ -113,7 +113,7 @@ make test-e2e
    - Posts plan output as PR comment
    - Runs smoke tests against staging
 6. Reviewer merges the PR
-7. `production-deploy.yml` runs `terraform apply` with `prod.tfvars` + `image_tags.production.tfvars`
+7. `production-deploy.yml` runs `terraform apply` with `production.tfvars` + `image_tags.production.tfvars`
 
 ### Manual rollback / deploy specific tag (workflow_dispatch)
 

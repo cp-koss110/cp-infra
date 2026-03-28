@@ -8,6 +8,7 @@ on:
       - "iac/**"
 
 env:
+  PROJECT_NAME: exam-costa
   TF_DIR: iac/terraform/envs/eus2
   AWS_REGION: us-east-2
   TF_BACKEND_BUCKET: exam-costa-terraform-state
@@ -27,17 +28,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Fetch API token from SSM
-        id: api-token
-        run: |
-          TOKEN=$(aws ssm get-parameter \
-            --name "/exam-costa/api/token" \
-            --with-decryption \
-            --query "Parameter.Value" \
-            --output text)
-          echo "::add-mask::$TOKEN"
-          echo "TF_API_TOKEN=$TOKEN" >> $GITHUB_ENV
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -65,7 +55,6 @@ jobs:
           terraform plan \
             -var-file=staging.tfvars \
             -var-file=image_tags.staging.tfvars \
-            -var="api_token_value=${{ env.TF_API_TOKEN }}" \
             -out=tfplan
 
       - name: Terraform Apply

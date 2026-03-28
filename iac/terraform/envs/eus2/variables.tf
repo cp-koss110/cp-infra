@@ -16,12 +16,12 @@ variable "project_name" {
 }
 
 variable "environment" {
-  description = "Environment name (test, prod)"
+  description = "Environment name (test, staging, production, dev)"
   type        = string
 
   validation {
-    condition     = contains(["test", "staging", "prod", "dev"], var.environment)
-    error_message = "environment must be one of: test, staging, prod, dev"
+    condition     = contains(["test", "staging", "production", "dev"], var.environment)
+    error_message = "environment must be one of: test, staging, production, dev"
   }
 }
 
@@ -175,16 +175,6 @@ variable "sqs_max_receive_count" {
   description = "Max receive count before sending to DLQ"
   type        = number
   default     = 5
-}
-
-# ==========================================
-# SSM Configuration
-# ==========================================
-variable "api_token_value" {
-  description = "API token value for SSM parameter"
-  type        = string
-  default     = ""
-  sensitive   = true
 }
 
 # ==========================================

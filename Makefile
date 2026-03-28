@@ -5,11 +5,13 @@
         bootstrap \
         local-up local-build local-down local-logs logs-api logs-worker logs-localstack \
         local-monitoring-up local-monitoring-down logs-monitoring \
-        tf-init tf-plan-staging tf-apply-staging tf-plan-prod tf-apply-prod \
+        tf-init tf-plan-staging tf-apply-staging tf-plan-production tf-apply-production \
         app-test app-test-unit app-test-integration test-validate test-e2e install-e2e \
         branch-protection branch-protection-production \
         nuke-staging nuke-production nuke-bootstrap nuke-all \
         venv-clean
+
+PROJECT_NAME := $(or $(PROJECT_NAME),exam-costa)
 
 BOOTSTRAP_DIR := iac/bootstrap
 COMPOSE            := docker compose -f local/docker-compose.yml
@@ -19,8 +21,8 @@ GIT_SHA      := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LOCAL_VERSION := local-$(GIT_SHA)
 
-TF_BACKEND_BUCKET := $(or $(TF_BACKEND_BUCKET),$(shell grep '^TF_BACKEND_BUCKET=' .env 2>/dev/null | cut -d= -f2-),exam-costa-terraform-state)
-TF_LOCK_TABLE     := $(or $(TF_LOCK_TABLE),$(shell grep '^TF_LOCK_TABLE=' .env 2>/dev/null | cut -d= -f2-),exam-costa-terraform-locks)
+TF_BACKEND_BUCKET := $(or $(TF_BACKEND_BUCKET),$(shell grep '^TF_BACKEND_BUCKET=' .env 2>/dev/null | cut -d= -f2-),$(PROJECT_NAME)-terraform-state)
+TF_LOCK_TABLE     := $(or $(TF_LOCK_TABLE),$(shell grep '^TF_LOCK_TABLE=' .env 2>/dev/null | cut -d= -f2-),$(PROJECT_NAME)-terraform-locks)
 
 E2E_ENV    := $(or $(ENV),staging)
 E2E_DIR    := iac/tests/e2e
@@ -53,20 +55,28 @@ bootstrap:
 	cd $(BOOTSTRAP_DIR) && terraform init
 	cd $(BOOTSTRAP_DIR) && terraform apply -auto-approve
 	@echo ""
-	@echo "==> Writing API token to SSM (/exam-costa/api/token)..."
+	@echo "==> Writing API token to SSM (staging + production)..."
 	$(eval TOKEN := $(call get_api_token))
 	@if [ -z "$(TOKEN)" ]; then \
 		echo "ERROR: API_TOKEN is empty. Aborting."; exit 1; \
 	fi
 	@aws ssm put-parameter \
-		--name "/exam-costa/api/token" \
+		--name "/$(PROJECT_NAME)/staging/api/token" \
 		--value "$(TOKEN)" \
 		--type SecureString \
 		--region us-east-2 \
 		--overwrite \
-		--description "API auth token for the exam-costa service" \
+		--description "API auth token for $(PROJECT_NAME) (staging)" \
 		> /dev/null
-	@echo "    Token written to SSM."
+	@aws ssm put-parameter \
+		--name "/$(PROJECT_NAME)/production/api/token" \
+		--value "$(TOKEN)" \
+		--type SecureString \
+		--region us-east-2 \
+		--overwrite \
+		--description "API auth token for $(PROJECT_NAME) (production)" \
+		> /dev/null
+	@echo "    Tokens written to SSM: staging + production."
 	@echo ""
 	@echo "Bootstrap complete. Next steps:"
 	@echo "  1. Copy backend config:  cp $(BOOTSTRAP_DIR)/../terraform/envs/eus2/backend.hcl.example $(BOOTSTRAP_DIR)/../terraform/envs/eus2/backend.hcl"
@@ -77,7 +87,7 @@ bootstrap:
 # ==========================================
 help:
 	@echo ""
-	@echo "exam-costa — available targets"
+	@echo "$(PROJECT_NAME) — available targets"
 	@echo ""
 	@echo "  Bootstrap (run once):"
 	@echo "    bootstrap     Create state bucket, ECR repos, DynamoDB lock table + write API token to SSM"
@@ -105,8 +115,8 @@ help:
 	@echo "    tf-init             terraform init (requires backend.hcl)"
 	@echo "    tf-plan-staging     plan with staging.tfvars"
 	@echo "    tf-apply-staging    apply staging (auto-approve)"
-	@echo "    tf-plan-prod        plan with prod.tfvars"
-	@echo "    tf-apply-prod       apply production (auto-approve)"
+	@echo "    tf-plan-production        plan with production.tfvars"
+	@echo "    tf-apply-production       apply production (auto-approve)"
 	@echo ""
 	@echo "  App tests:"
 	@echo "    app-test              run all unit tests (api + worker)"
@@ -179,19 +189,19 @@ logs-monitoring:
 	$(COMPOSE_MONITORING) logs -f
 
 logs-api:
-	docker logs -f exam-costa-api
+	docker logs -f $(PROJECT_NAME)-api
 
 logs-worker:
-	docker logs -f exam-costa-worker
+	docker logs -f $(PROJECT_NAME)-worker
 
 logs-localstack:
-	docker logs -f exam-costa-localstack
+	docker logs -f $(PROJECT_NAME)-localstack
 
 logs-grafana:
-	docker logs -f exam-costa-grafana
+	docker logs -f $(PROJECT_NAME)-grafana
 
 logs-prometheus:
-	docker logs -f exam-costa-prometheus
+	docker logs -f $(PROJECT_NAME)-prometheus
 
 # ==========================================
 # Terraform
@@ -211,14 +221,14 @@ tf-apply-staging:
 		-var-file=image_tags.staging.tfvars \
 		-auto-approve
 
-tf-plan-prod:
+tf-plan-production:
 	cd $(TF_DIR) && terraform plan \
-		-var-file=prod.tfvars \
+		-var-file=production.tfvars \
 		-var-file=image_tags.production.tfvars
 
-tf-apply-prod:
+tf-apply-production:
 	cd $(TF_DIR) && terraform apply \
-		-var-file=prod.tfvars \
+		-var-file=production.tfvars \
 		-var-file=image_tags.production.tfvars \
 		-auto-approve
 
@@ -294,23 +304,25 @@ install-e2e: $(E2E_VENV)/bin/activate
 test-e2e: install-e2e
 	@[ -n "$$ALB_URL" ] && _ALB_URL="$$ALB_URL" || \
 		_ALB_URL=$$(aws ssm get-parameter \
-			--name "/exam-costa/$(E2E_ENV)/outputs/alb_url" \
+			--name "/$(PROJECT_NAME)/$(E2E_ENV)/outputs/alb_url" \
 			--query "Parameter.Value" --output text --region us-east-2 2>/dev/null) || true; \
 	[ -n "$$S3_BUCKET_NAME" ] && _S3_BUCKET="$$S3_BUCKET_NAME" || \
 		_S3_BUCKET=$$(aws ssm get-parameter \
-			--name "/exam-costa/$(E2E_ENV)/outputs/s3_bucket_name" \
+			--name "/$(PROJECT_NAME)/$(E2E_ENV)/outputs/s3_bucket_name" \
 			--query "Parameter.Value" --output text --region us-east-2 2>/dev/null) || true; \
 	[ -n "$$API_TOKEN" ] && _API_TOKEN="$$API_TOKEN" || \
 		_API_TOKEN=$$(aws ssm get-parameter \
-			--name "/exam-costa/api/token" \
+			--name "/$(PROJECT_NAME)/$(E2E_ENV)/api/token" \
 			--with-decryption \
 			--query "Parameter.Value" --output text --region us-east-2 2>/dev/null) || true; \
 	if [ -z "$$_ALB_URL" ]; then \
-		echo "ERROR: Could not resolve ALB_URL from SSM (/exam-costa/$(E2E_ENV)/outputs/alb_url)."; \
+		echo "ERROR: Could not resolve ALB_URL from SSM (/$(PROJECT_NAME)/$(E2E_ENV)/outputs/alb_url)."; \
 		echo "  Ensure AWS credentials are set, or pass ALB_URL=http://... explicitly."; \
 		exit 1; \
 	fi; \
 	echo "==> Running smoke tests against [$$_ALB_URL] ($(E2E_ENV))"; \
+	PROJECT_NAME=$(PROJECT_NAME) \
+	E2E_ENV=$(E2E_ENV) \
 	ALB_URL="$$_ALB_URL" \
 	S3_BUCKET_NAME="$$_S3_BUCKET" \
 	API_TOKEN="$$_API_TOKEN" \
@@ -323,47 +335,35 @@ test-e2e: install-e2e
 # can resolve all variables without prompting.
 # ==========================================
 
-define get_tf_token
-$(shell aws ssm get-parameter \
-	--name "/exam-costa/api/token" \
-	--with-decryption \
-	--query "Parameter.Value" \
-	--output text \
-	--region us-east-2 2>/dev/null || echo "unknown")
-endef
-
 nuke-staging:
 	@echo ""
 	@echo "==> Destroying STAGING environment..."
-	$(eval TF_TOKEN := $(call get_tf_token))
 	cd $(TF_DIR) && \
 		printf 'bucket         = "$(TF_BACKEND_BUCKET)"\nkey            = "envs/eus2/staging/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "$(TF_LOCK_TABLE)"\nencrypt        = true\n' > /tmp/nuke-staging.hcl && \
 		terraform init -backend-config=/tmp/nuke-staging.hcl -reconfigure && \
 		terraform destroy \
 			-var-file=staging.tfvars \
 			-var-file=image_tags.staging.tfvars \
-			-var="api_token_value=$(TF_TOKEN)" \
 			-auto-approve
 
 nuke-production:
 	@echo ""
 	@echo "==> Destroying PRODUCTION environment..."
-	$(eval TF_TOKEN := $(call get_tf_token))
 	cd $(TF_DIR) && \
 		printf 'bucket         = "$(TF_BACKEND_BUCKET)"\nkey            = "envs/eus2/production/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "$(TF_LOCK_TABLE)"\nencrypt        = true\n' > /tmp/nuke-production.hcl && \
 		terraform init -backend-config=/tmp/nuke-production.hcl -reconfigure && \
 		terraform destroy \
-			-var-file=prod.tfvars \
+			-var-file=production.tfvars \
 			-var-file=image_tags.production.tfvars \
-			-var="api_token_value=$(TF_TOKEN)" \
 			-auto-approve
 
 nuke-bootstrap:
 	@echo ""
-	@echo "==> Removing API token from SSM..."
-	@aws ssm delete-parameter \
-		--name "/exam-costa/api/token" \
-		--region us-east-2 2>/dev/null && echo "    Token deleted." || echo "    Token not found, skipping."
+	@echo "==> Removing API tokens from SSM..."
+	@aws ssm delete-parameter --name "/$(PROJECT_NAME)/staging/api/token" \
+		--region us-east-2 2>/dev/null && echo "    Staging token deleted." || echo "    Staging token not found, skipping."
+	@aws ssm delete-parameter --name "/$(PROJECT_NAME)/production/api/token" \
+		--region us-east-2 2>/dev/null && echo "    Production token deleted." || echo "    Production token not found, skipping."
 	@echo "==> Destroying BOOTSTRAP resources (ECR, S3 state bucket, DynamoDB)..."
 	cd $(BOOTSTRAP_DIR) && terraform destroy -auto-approve
 

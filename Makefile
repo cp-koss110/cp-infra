@@ -4,6 +4,7 @@
 .PHONY: help \
         bootstrap \
         local-up local-build local-down local-logs logs-api logs-worker logs-localstack \
+        local-monitoring-up local-monitoring-down \
         tf-init tf-plan-staging tf-apply-staging tf-plan-prod tf-apply-prod \
         app-test app-test-unit app-test-integration test-validate test-e2e install-e2e \
         branch-protection branch-protection-production \
@@ -11,7 +12,8 @@
         venv-clean
 
 BOOTSTRAP_DIR := iac/bootstrap
-COMPOSE      := docker compose -f local/docker-compose.yml
+COMPOSE            := docker compose -f local/docker-compose.yml
+COMPOSE_MONITORING := docker compose -f local/docker-compose.monitoring.yml
 TF_DIR       := iac/terraform/envs/eus2
 GIT_SHA      := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -90,6 +92,12 @@ help:
 	@echo "    logs-worker   Follow Worker container logs"
 	@echo "    logs-localstack  Follow LocalStack logs"
 	@echo ""
+	@echo "  Local monitoring (optional):"
+	@echo "    local-monitoring-up    Start Prometheus + Grafana + Node Exporter"
+	@echo "    local-monitoring-down  Stop monitoring stack"
+	@echo "    Grafana:    http://localhost:3001  (admin/admin)"
+	@echo "    Prometheus: http://localhost:9090"
+	@echo ""
 	@echo "  Terraform:"
 	@echo "    tf-init             terraform init (requires backend.hcl)"
 	@echo "    tf-plan-staging     plan with staging.tfvars"
@@ -142,6 +150,19 @@ local-build:
 
 local-down:
 	$(COMPOSE) down -v
+
+local-monitoring-up:
+	$(COMPOSE_MONITORING) up -d
+	@echo ""
+	@echo "Monitoring stack is up:"
+	@echo "  Grafana:    http://localhost:3001  (admin / admin)"
+	@echo "  Prometheus: http://localhost:9090"
+	@echo "  Node Exp:   http://localhost:9100/metrics"
+	@echo ""
+	@echo "Import a dashboard in Grafana: Dashboards → Import → ID 1860 (Node Exporter Full)"
+
+local-monitoring-down:
+	$(COMPOSE_MONITORING) down -v
 
 local-logs:
 	$(COMPOSE) logs -f

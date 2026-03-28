@@ -60,6 +60,9 @@ flowchart TD
     checks --> smoke[Smoke Tests\nagainst staging ALB]
 
     pr -->|merge| prod_deploy[production-deploy.yml\nterraform apply]
+    prod_deploy --> ecs_wait[aws ecs wait\nservices-stable]
+    ecs_wait --> prod_smoke[Smoke tests\nagainst production ALB]
+    prod_smoke --> gh_release[GitHub Release\nproduction/YYYY-MM-DD-sha]
 
     style staging_deploy fill:#2d6a4f,color:#fff
     style prod_deploy fill:#1b4332,color:#fff
@@ -104,6 +107,9 @@ flowchart LR
 | S3 force-destroy | yes | no |
 | Log retention | 7 days | 30 days |
 | ECR tag mutability | MUTABLE | IMMUTABLE |
+| Container Insights | enabled | enabled |
+| CloudWatch dashboard | enabled | enabled |
+| CloudWatch alarms | enabled | enabled |
 
 ---
 
@@ -194,6 +200,26 @@ aws --endpoint-url=http://localhost:4566 --region us-east-2 \
 make local-down
 ```
 
+### Local monitoring (optional)
+
+Start an independent Prometheus + Grafana + Node Exporter stack:
+
+```bash
+make local-monitoring-up
+```
+
+| Service | URL |
+|---------|-----|
+| Grafana | http://localhost:3001 — login: `admin` / `admin` |
+| Prometheus | http://localhost:9090 |
+| Node Exporter | http://localhost:9100/metrics |
+
+Grafana starts with the Prometheus datasource pre-configured. To get a full system dashboard: **Dashboards → Import → ID `1860`** (Node Exporter Full).
+
+```bash
+make local-monitoring-down   # stop + remove volumes
+```
+
 ---
 
 ## Make targets reference
@@ -216,6 +242,13 @@ make local-down
 | `make logs-worker` | Follow cp-worker container logs |
 | `make logs-localstack` | Follow LocalStack container logs |
 
+### Local monitoring (optional)
+
+| Target | Description |
+|--------|-------------|
+| `make local-monitoring-up` | Start Prometheus + Grafana + Node Exporter |
+| `make local-monitoring-down` | Stop monitoring stack and remove volumes |
+
 ### Tests
 
 | Target | Description |
@@ -224,7 +257,10 @@ make local-down
 | `make app-test-unit` | Same as `app-test` |
 | `make app-test-integration` | Integration tests — requires `LOCALSTACK_ENDPOINT=http://localhost:4566` |
 | `make test-validate` | `terraform fmt -check` + `terraform validate` across all modules |
-| `make test-e2e` | HTTP smoke tests — requires `ALB_URL=http://<alb-dns>` |
+| `make install-e2e` | Create `iac/tests/e2e/.venv` and install test dependencies |
+| `make test-e2e` | Smoke tests against staging — ALB URL, API token, S3 bucket auto-fetched from SSM |
+| `make test-e2e ENV=prod` | Same against production |
+| `make test-e2e ALB_URL=http://...` | Manual ALB override |
 
 ### Terraform
 
@@ -377,9 +413,13 @@ cp-infra/
 │       ├── terraform/          # validate.sh — fmt-check + validate
 │       └── e2e/                # test_smoke.py — HTTP smoke tests
 ├── local/
-│   ├── docker-compose.yml      # Full local stack
+│   ├── docker-compose.yml           # Full local stack (api + worker + localstack)
+│   ├── docker-compose.monitoring.yml # Optional monitoring stack (prometheus + grafana + node-exporter)
+│   ├── monitoring/
+│   │   ├── prometheus.yml           # Prometheus scrape config
+│   │   └── grafana/provisioning/    # Grafana datasource auto-provisioning
 │   └── scripts/
-│       └── bootstrap-local.sh  # Seeds LocalStack
+│       └── bootstrap-local.sh       # Seeds LocalStack
 ├── scripts/
 │   └── apply-branch-protection.sh
 └── Makefile

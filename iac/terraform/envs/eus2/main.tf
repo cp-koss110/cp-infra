@@ -326,7 +326,7 @@ module "iam_worker_task_role" {
 module "ssm_api_token" {
   source = "../../modules/ssm_parameter"
 
-  parameter_name  = "/${var.project_name}/api/token"
+  parameter_name  = "/${var.project_name}/${var.environment}/api/token"
   parameter_value = var.api_token_value != "" ? var.api_token_value : "CHANGE_ME_IN_SSM"
   parameter_type  = "SecureString"
   description     = "API validation token for ${var.project_name}"
@@ -785,7 +785,7 @@ resource "aws_ecr_registry_scanning_configuration" "enhanced" {
 # Three pipelines:
 #   1. Branch CI  — any non-main branch: lint + basic tests + Bandit + build + push
 #   2. Main CI    — main branch: full tests + Bandit + build + push + optional dev update
-#   3. Tag/Promote — semver tag: promote existing image or build, then update prod.tfvars
+#   3. Tag/Promote — semver tag: promote existing image or build, then update production.tfvars
 #
 # Enable with: enable_app_pipeline = true
 # ==========================================
@@ -885,7 +885,7 @@ module "codebuild_app_tag" {
   source = "../../modules/codebuild"
 
   project_name     = "${local.project_prefix}-app-tag"
-  description      = "App release: promote image by retagging, commit image_tag to infra prod.tfvars"
+  description      = "App release: promote image by retagging, commit image_tag to infra production.tfvars"
   service_role_arn = var.codebuild_role_arn
   buildspec_path   = "buildspec/tag-promote.yml"
   source_type      = "CODECOMMIT"

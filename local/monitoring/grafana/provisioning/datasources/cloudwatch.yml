@@ -4,9 +4,10 @@ datasources:
   - name: CloudWatch
     type: cloudwatch
     access: proxy
+    version: 2
     jsonData:
       authType: keys
-      defaultRegion: ${AWS_DEFAULT_REGION}
+      defaultRegion: ${AWS_DEFAULT_REGION:-us-east-2}
     secureJsonData:
       accessKey: ${AWS_ACCESS_KEY_ID}
       secretKey: ${AWS_SECRET_ACCESS_KEY}

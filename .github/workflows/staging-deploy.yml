@@ -8,6 +8,7 @@ on:
       - "iac/**"
 
 env:
+  PROJECT_NAME: exam-costa
   TF_DIR: iac/terraform/envs/eus2
   AWS_REGION: us-east-2
   TF_BACKEND_BUCKET: exam-costa-terraform-state
@@ -32,7 +33,7 @@ jobs:
         id: api-token
         run: |
           TOKEN=$(aws ssm get-parameter \
-            --name "/exam-costa/api/token" \
+            --name "/${{ env.PROJECT_NAME }}/staging/api/token" \
             --with-decryption \
             --query "Parameter.Value" \
             --output text)

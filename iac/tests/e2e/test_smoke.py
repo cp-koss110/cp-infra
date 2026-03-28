@@ -15,14 +15,26 @@ import boto3
 import pytest
 import requests
 
-ALB_URL     = os.environ.get("ALB_URL", "").rstrip("/")
-API_TOKEN   = os.environ.get("API_TOKEN", "")
-S3_BUCKET   = os.environ.get("S3_BUCKET_NAME", "")
-AWS_REGION  = os.environ.get("AWS_REGION", "us-east-2")
+AWS_REGION   = os.environ.get("AWS_REGION", "us-east-2")
+E2E_ENV      = os.environ.get("E2E_ENV", "staging")
+PROJECT_NAME = os.environ.get("PROJECT_NAME", "exam-costa")
+
+
+def _ssm_get(name: str, with_decryption: bool = False) -> str:
+    try:
+        ssm = boto3.client("ssm", region_name=AWS_REGION)
+        return ssm.get_parameter(Name=name, WithDecryption=with_decryption)["Parameter"]["Value"]
+    except Exception:
+        return ""
+
+
+ALB_URL   = (os.environ.get("ALB_URL") or _ssm_get(f"/{PROJECT_NAME}/{E2E_ENV}/outputs/alb_url")).rstrip("/")
+API_TOKEN = os.environ.get("API_TOKEN") or _ssm_get(f"/{PROJECT_NAME}/{E2E_ENV}/api/token", with_decryption=True)
+S3_BUCKET = os.environ.get("S3_BUCKET_NAME") or _ssm_get(f"/{PROJECT_NAME}/{E2E_ENV}/outputs/s3_bucket_name")
 
 pytestmark = pytest.mark.skipif(
     not ALB_URL,
-    reason="ALB_URL not set — skipping smoke tests",
+    reason="ALB_URL not set and SSM lookup failed — skipping smoke tests",
 )
 
 

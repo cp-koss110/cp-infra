@@ -147,14 +147,22 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Resolve ALB URL from SSM
-        id: alb
+      - name: Resolve SSM parameters
         run: |
           ALB_URL=$(aws ssm get-parameter \
             --name "/exam-costa/staging/outputs/alb_url" \
-            --query "Parameter.Value" \
-            --output text)
-          echo "ALB_URL=$ALB_URL" >> $GITHUB_ENV
+            --query "Parameter.Value" --output text)
+          S3_BUCKET=$(aws ssm get-parameter \
+            --name "/exam-costa/staging/outputs/s3_bucket_name" \
+            --query "Parameter.Value" --output text)
+          API_TOKEN=$(aws ssm get-parameter \
+            --name "/exam-costa/api/token" \
+            --with-decryption \
+            --query "Parameter.Value" --output text)
+          echo "::add-mask::$API_TOKEN"
+          echo "ALB_URL=$ALB_URL"       >> $GITHUB_ENV
+          echo "S3_BUCKET=$S3_BUCKET"   >> $GITHUB_ENV
+          echo "API_TOKEN=$API_TOKEN"   >> $GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -166,5 +174,8 @@ jobs:
 
       - name: Run smoke tests against staging
         env:
-          ALB_URL: ${{ env.ALB_URL }}
+          ALB_URL:        ${{ env.ALB_URL }}
+          API_TOKEN:      ${{ env.API_TOKEN }}
+          S3_BUCKET_NAME: ${{ env.S3_BUCKET }}
+          AWS_REGION:     ${{ env.AWS_REGION }}
         run: pytest iac/tests/e2e/test_smoke.py -v

@@ -1,0 +1,125 @@
+name: Staging PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  PROJECT_NAME: exam-costa
+  TF_DIR: iac/terraform/envs/eus2
+  AWS_REGION: us-east-2
+  TF_BACKEND_BUCKET: exam-costa-terraform-state
+  TF_LOCK_TABLE: exam-costa-terraform-locks
+
+jobs:
+  validate:
+    name: Terraform Validate & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.7"
+
+      - name: Terraform Format Check
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform fmt -check -recursive ../../
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write backend config
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          cat > backend.hcl <<EOF
+          bucket         = "${{ env.TF_BACKEND_BUCKET }}"
+          key            = "envs/eus2/staging/terraform.tfstate"
+          region         = "${{ env.AWS_REGION }}"
+          dynamodb_table = "${{ env.TF_LOCK_TABLE }}"
+          encrypt        = true
+          EOF
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init -backend-config=backend.hcl
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate
+
+  plan:
+    name: Terraform Plan — Staging
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.7"
+          terraform_wrapper: true
+
+      - name: Write backend config
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          cat > backend.hcl <<EOF
+          bucket         = "${{ env.TF_BACKEND_BUCKET }}"
+          key            = "envs/eus2/staging/terraform.tfstate"
+          region         = "${{ env.AWS_REGION }}"
+          dynamodb_table = "${{ env.TF_LOCK_TABLE }}"
+          encrypt        = true
+          EOF
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init -backend-config=backend.hcl
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform plan \
+            -var-file=staging.tfvars \
+            -var-file=image_tags.staging.tfvars \
+            -no-color 2>&1 | tee plan_output.txt
+        continue-on-error: true
+
+      - name: Post plan as PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planOutput = fs.readFileSync('${{ env.TF_DIR }}/plan_output.txt', 'utf8');
+            const truncated = planOutput.length > 60000
+              ? planOutput.substring(0, 60000) + '\n\n... output truncated (too large for comment)'
+              : planOutput;
+            const body = `## Terraform Plan — Staging\n\n<details>\n<summary>Click to expand plan output</summary>\n\n\`\`\`hcl\n${truncated}\n\`\`\`\n</details>`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });
+
+      - name: Fail if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

@@ -67,12 +67,12 @@ output "sqs_dlq_url" {
 # ==========================================
 output "api_token_parameter_name" {
   description = "SSM parameter name for API token"
-  value       = module.ssm_api_token.parameter_name
+  value       = data.aws_ssm_parameter.api_token.name
 }
 
 output "api_token_parameter_arn" {
   description = "SSM parameter ARN for API token"
-  value       = module.ssm_api_token.parameter_arn
+  value       = data.aws_ssm_parameter.api_token.arn
 }
 
 # ==========================================

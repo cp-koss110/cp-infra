@@ -92,12 +92,13 @@ log_retention_days = 30 # Keep logs for 30 days in prod
 # ==========================================
 # Monitoring Configuration
 # ==========================================
-enable_alarms = false
+enable_alarms           = false
+enable_pipeline_metrics = false # No CodeBuild pipelines — using GitHub Actions
 
 # ==========================================
 # CI/CD Configuration (from bootstrap outputs)
 # ==========================================
-enable_cicd           = true
+enable_cicd           = false # Using GitHub Actions, not CodePipeline/CodeBuild
 codecommit_repo_name  = "exam-costa-infra"
 codebuild_role_arn    = "arn:aws:iam::214422569286:role/exam-costa-codebuild-role"
 codepipeline_role_arn = "arn:aws:iam::214422569286:role/exam-costa-codepipeline-role"

@@ -55,7 +55,7 @@ bootstrap:
 	cd $(BOOTSTRAP_DIR) && terraform init
 	cd $(BOOTSTRAP_DIR) && terraform apply -auto-approve
 	@echo ""
-	@echo "==> Writing API token to SSM (/$(PROJECT_NAME)/staging/api/token)..."
+	@echo "==> Writing API token to SSM (staging + production)..."
 	$(eval TOKEN := $(call get_api_token))
 	@if [ -z "$(TOKEN)" ]; then \
 		echo "ERROR: API_TOKEN is empty. Aborting."; exit 1; \
@@ -66,9 +66,17 @@ bootstrap:
 		--type SecureString \
 		--region us-east-2 \
 		--overwrite \
-		--description "API auth token for the $(PROJECT_NAME) staging service" \
+		--description "API auth token for $(PROJECT_NAME) (staging)" \
 		> /dev/null
-	@echo "    Token written to SSM."
+	@aws ssm put-parameter \
+		--name "/$(PROJECT_NAME)/production/api/token" \
+		--value "$(TOKEN)" \
+		--type SecureString \
+		--region us-east-2 \
+		--overwrite \
+		--description "API auth token for $(PROJECT_NAME) (production)" \
+		> /dev/null
+	@echo "    Tokens written to SSM: staging + production."
 	@echo ""
 	@echo "Bootstrap complete. Next steps:"
 	@echo "  1. Copy backend config:  cp $(BOOTSTRAP_DIR)/../terraform/envs/eus2/backend.hcl.example $(BOOTSTRAP_DIR)/../terraform/envs/eus2/backend.hcl"
@@ -330,27 +338,23 @@ test-e2e: install-e2e
 nuke-staging:
 	@echo ""
 	@echo "==> Destroying STAGING environment..."
-	$(eval TF_TOKEN := $(shell aws ssm get-parameter --name "/$(PROJECT_NAME)/staging/api/token" --with-decryption --query "Parameter.Value" --output text --region us-east-2 2>/dev/null || echo "unknown"))
 	cd $(TF_DIR) && \
 		printf 'bucket         = "$(TF_BACKEND_BUCKET)"\nkey            = "envs/eus2/staging/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "$(TF_LOCK_TABLE)"\nencrypt        = true\n' > /tmp/nuke-staging.hcl && \
 		terraform init -backend-config=/tmp/nuke-staging.hcl -reconfigure && \
 		terraform destroy \
 			-var-file=staging.tfvars \
 			-var-file=image_tags.staging.tfvars \
-			-var="api_token_value=$(TF_TOKEN)" \
 			-auto-approve
 
 nuke-production:
 	@echo ""
 	@echo "==> Destroying PRODUCTION environment..."
-	$(eval TF_TOKEN := $(shell aws ssm get-parameter --name "/$(PROJECT_NAME)/production/api/token" --with-decryption --query "Parameter.Value" --output text --region us-east-2 2>/dev/null || echo "unknown"))
 	cd $(TF_DIR) && \
 		printf 'bucket         = "$(TF_BACKEND_BUCKET)"\nkey            = "envs/eus2/production/terraform.tfstate"\nregion         = "us-east-2"\ndynamodb_table = "$(TF_LOCK_TABLE)"\nencrypt        = true\n' > /tmp/nuke-production.hcl && \
 		terraform init -backend-config=/tmp/nuke-production.hcl -reconfigure && \
 		terraform destroy \
 			-var-file=production.tfvars \
 			-var-file=image_tags.production.tfvars \
-			-var="api_token_value=$(TF_TOKEN)" \
 			-auto-approve
 
 nuke-bootstrap:

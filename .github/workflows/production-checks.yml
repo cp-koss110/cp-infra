@@ -72,16 +72,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Fetch API token from SSM
-        run: |
-          TOKEN=$(aws ssm get-parameter \
-            --name "/${{ env.PROJECT_NAME }}/production/api/token" \
-            --with-decryption \
-            --query "Parameter.Value" \
-            --output text)
-          echo "::add-mask::$TOKEN"
-          echo "TF_API_TOKEN=$TOKEN" >> $GITHUB_ENV
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -110,7 +100,6 @@ jobs:
           terraform plan \
             -var-file=production.tfvars \
             -var-file=image_tags.production.tfvars \
-            -var="api_token_value=${{ env.TF_API_TOKEN }}" \
             -no-color 2>&1 | tee plan_output.txt
         continue-on-error: true
 

@@ -60,10 +60,7 @@ sqs_message_retention  = 86400 # 1 day in staging
 sqs_receive_wait_time  = 20
 sqs_max_receive_count  = 5
 
-# ==========================================
-# SSM Configuration
-# ==========================================
-# api_token_value is passed via TF_VAR_api_token_value in GitHub Actions secrets
+# API token at /{project_name}/{env}/api/token is created by `make bootstrap`
 
 # ==========================================
 # ALB Configuration

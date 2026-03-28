@@ -57,11 +57,7 @@ sqs_message_retention  = 1209600 # 14 days in production
 sqs_receive_wait_time  = 20      # Long polling
 sqs_max_receive_count  = 3       # Lower threshold for production
 
-# ==========================================
-# SSM Configuration
-# ==========================================
-# API token - MUST be changed after deployment!
-api_token_value = "CHANGE_ME_IN_SSM_AFTER_DEPLOYMENT"
+# API token at /{project_name}/{env}/api/token is created by `make bootstrap`
 
 # ==========================================
 # ALB Configuration

@@ -323,15 +323,10 @@ module "iam_worker_task_role" {
 # ==========================================
 # SSM Parameter for API Token
 # ==========================================
-module "ssm_api_token" {
-  source = "../../modules/ssm_parameter"
-
-  parameter_name  = "/${var.project_name}/${var.environment}/api/token"
-  parameter_value = var.api_token_value != "" ? var.api_token_value : "CHANGE_ME_IN_SSM"
-  parameter_type  = "SecureString"
-  description     = "API validation token for ${var.project_name}"
-
-  tags = var.tags
+# Token is created by `make bootstrap` — Terraform reads it as a data source.
+# This prevents `terraform destroy` on one environment from deleting the shared secret.
+data "aws_ssm_parameter" "api_token" {
+  name = "/${var.project_name}/${var.environment}/api/token"
 }
 
 # ==========================================
@@ -489,7 +484,7 @@ module "ecs_service_api" {
     ENVIRONMENT        = var.environment
     AWS_REGION         = var.aws_region
     SQS_QUEUE_URL      = module.sqs_messages.queue_url
-    SSM_PARAMETER_NAME = module.ssm_api_token.parameter_name
+    SSM_PARAMETER_NAME = data.aws_ssm_parameter.api_token.name
     LOG_LEVEL          = var.log_level
   }
 
@@ -1105,7 +1100,7 @@ module "codebuild_tf_plan" {
     TF_BACKEND_REGION = var.aws_region
     TF_LOCK_TABLE     = var.tf_lock_table
     TF_ENVIRONMENT    = var.environment
-    # TF_VAR_api_token_value is injected via PARAMETER_STORE in the buildspec
+    # API token is managed by bootstrap, read via data.aws_ssm_parameter.api_token
   }
 
   tags = var.tags

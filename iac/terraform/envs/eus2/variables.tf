@@ -178,16 +178,6 @@ variable "sqs_max_receive_count" {
 }
 
 # ==========================================
-# SSM Configuration
-# ==========================================
-variable "api_token_value" {
-  description = "API token value for SSM parameter"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-# ==========================================
 # ALB Configuration
 # ==========================================
 variable "alb_enable_deletion_protection" {

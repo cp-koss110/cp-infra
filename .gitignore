@@ -15,3 +15,8 @@ iac/bootstrap/terraform.tfvars
 
 # Local dev
 .env
+.secrets
+
+# Python
+__pycache__/
+*.pyc

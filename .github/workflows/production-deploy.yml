@@ -117,6 +117,9 @@ jobs:
           WORKER_TAG=$(grep 'worker_image_tag' ${{ env.TF_DIR }}/image_tags.production.tfvars | cut -d'"' -f2)
           SHORT_SHA=$(git rev-parse --short HEAD)
           DEPLOY_TAG="production/$(date -u +%Y-%m-%d)-${SHORT_SHA}"
+          CW_URL=$(aws ssm get-parameter \
+            --name "/exam-costa/prod/outputs/cloudwatch_dashboard_url" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$DEPLOY_TAG"
@@ -131,4 +134,10 @@ jobs:
           | worker  | \`${WORKER_TAG}\` |
 
           **Infra commit:** \`${SHORT_SHA}\`
-          **Triggered by:** \`${{ github.actor }}\`"
+          **Triggered by:** \`${{ github.actor }}\`
+          ${CW_URL:+
+          ## Monitoring
+
+          | Dashboard | URL |
+          |-----------|-----|
+          | CloudWatch (production) | ${CW_URL} |}"

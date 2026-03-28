@@ -1197,3 +1197,16 @@ resource "aws_ssm_parameter" "infra_output" {
     Name = "/${var.project_name}/${var.environment}/outputs/${each.key}"
   })
 }
+
+resource "aws_ssm_parameter" "cloudwatch_dashboard_url" {
+  count = var.enable_cloudwatch_monitoring ? 1 : 0
+
+  name      = "/${var.project_name}/${var.environment}/outputs/cloudwatch_dashboard_url"
+  type      = "String"
+  value     = "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.main[0].dashboard_name}"
+  overwrite = true
+
+  tags = merge(var.tags, {
+    Name = "/${var.project_name}/${var.environment}/outputs/cloudwatch_dashboard_url"
+  })
+}

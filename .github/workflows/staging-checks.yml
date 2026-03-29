@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: staging-checks-${{ github.head_ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write
@@ -20,11 +24,12 @@ jobs:
   validate:
     name: Terraform Validate & Format
     runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "~1.7"
 
@@ -62,8 +67,9 @@ jobs:
     name: Terraform Plan — Staging
     runs-on: ubuntu-latest
     needs: validate
+    if: github.actor != 'dependabot[bot]'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -73,7 +79,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "~1.7"
           terraform_wrapper: true
@@ -104,7 +110,7 @@ jobs:
         continue-on-error: true
 
       - name: Post plan as PR comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');

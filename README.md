@@ -3,6 +3,7 @@
 ![Staging Deploy](https://github.com/koss110/cp-infra/actions/workflows/staging-deploy.yml/badge.svg)
 ![Production Checks](https://github.com/koss110/cp-infra/actions/workflows/production-checks.yml/badge.svg)
 ![Production Deploy](https://github.com/koss110/cp-infra/actions/workflows/production-deploy.yml/badge.svg)
+![CodeQL](https://github.com/koss110/cp-infra/actions/workflows/codeql.yml/badge.svg)
 ![Terraform](https://img.shields.io/badge/terraform-1.7-7B42BC)
 ![AWS](https://img.shields.io/badge/AWS-ECS%20Fargate-FF9900)
 
@@ -122,6 +123,31 @@ flowchart LR
 
 State bucket: `exam-costa-terraform-state`
 Lock table: `exam-costa-terraform-locks`
+
+---
+
+## Monitoring
+
+### CloudWatch dashboard (AWS)
+
+A per-environment CloudWatch dashboard is provisioned automatically by Terraform. It tracks ECS CPU/memory utilisation, ALB request count and 5xx errors, SQS messages visible and sent/deleted, and GitHub Actions workflow runs + success rate.
+
+![CloudWatch dashboard — staging](docs/screenshots/cloudwatch-dashboard.png)
+
+### Grafana dashboard (local)
+
+A local Grafana + Prometheus stack ships with the repo (`make local-monitoring-up`). It surfaces per-service application metrics exported directly from cp-api and cp-worker:
+
+| Panel | What it shows |
+|-------|--------------|
+| API — Request Rate by Status | HTTP 200 / 401 / 422 breakdown |
+| API — Latency p50/p95/p99 | End-to-end response time percentiles |
+| API — Messages Published | Rate of SQS publishes |
+| API — Token Errors | Rate of 401 rejections |
+| Worker — Processed / S3 Uploads | Rate of messages consumed and uploaded |
+| Worker — Processing Duration p95 | Time to process each SQS message |
+
+![Grafana dashboard — local](docs/screenshots/grafana-dashboard.png)
 
 ---
 
@@ -355,7 +381,7 @@ Bootstraps:
 - S3 state bucket (`exam-costa-terraform-state`)
 - DynamoDB lock table (`exam-costa-terraform-locks`)
 - ECR repositories (`exam-costa-api`, `exam-costa-worker`)
-- SSM SecureString at `/exam-costa/api/token`
+- SSM SecureStrings at `/exam-costa/staging/api/token` and `/exam-costa/production/api/token`
 
 ### 2. Configure GitHub Actions secrets
 
@@ -424,3 +450,32 @@ cp-infra/
 │   └── apply-branch-protection.sh
 └── Makefile
 ```
+
+---
+
+## Live environments
+
+All runtime endpoints are stored in SSM Parameter Store after each `terraform apply`. Retrieve them with:
+
+```bash
+# Staging
+aws ssm get-parameter --name /exam-costa/staging/outputs/alb_url                    --query Parameter.Value --output text
+aws ssm get-parameter --name /exam-costa/staging/outputs/cloudwatch_dashboard_url   --query Parameter.Value --output text
+
+# Production
+aws ssm get-parameter --name /exam-costa/production/outputs/alb_url                 --query Parameter.Value --output text
+aws ssm get-parameter --name /exam-costa/production/outputs/cloudwatch_dashboard_url --query Parameter.Value --output text
+```
+
+| SSM path | Description |
+|----------|-------------|
+| `/exam-costa/{env}/outputs/alb_url` | ALB endpoint for the API |
+| `/exam-costa/{env}/outputs/cloudwatch_dashboard_url` | CloudWatch dashboard link |
+| `/exam-costa/{env}/outputs/sqs_queue_url` | SQS queue URL |
+| `/exam-costa/{env}/outputs/s3_bucket_name` | S3 messages bucket |
+| `/exam-costa/{env}/outputs/ecs_cluster_name` | ECS cluster name |
+| `/exam-costa/{env}/outputs/api_service_name` | ECS API service name |
+| `/exam-costa/{env}/outputs/worker_service_name` | ECS worker service name |
+| `/exam-costa/{env}/api/token` | API bearer token (SecureString) |
+
+`{env}` is `staging` or `production`.

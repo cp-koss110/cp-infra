@@ -1,4 +1,4 @@
 # Managed by GitHub Actions — do not edit manually
 # Updated automatically when staging image tags are promoted to production
-api_image_tag    = "v2.0.0"
-worker_image_tag = "v2.0.0"
+api_image_tag    = "v2.0.1"
+worker_image_tag = "v2.0.1"

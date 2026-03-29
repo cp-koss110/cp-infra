@@ -41,10 +41,7 @@ gh api "$API/cp-api/branches/main/protection" \
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
     "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true,
-    "bypass_pull_request_allowances": {
-      "users": ["$OWNER"]
-    }
+    "require_code_owner_reviews": true
   },
   "restrictions": null
 }
@@ -69,10 +66,7 @@ gh api "$API/cp-worker/branches/main/protection" \
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
     "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true,
-    "bypass_pull_request_allowances": {
-      "users": ["$OWNER"]
-    }
+    "require_code_owner_reviews": true
   },
   "restrictions": null
 }
@@ -92,10 +86,7 @@ gh api "$API/cp-infra/branches/main/protection" \
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
     "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true,
-    "bypass_pull_request_allowances": {
-      "users": ["$OWNER"]
-    }
+    "require_code_owner_reviews": true
   },
   "restrictions": null
 }
@@ -121,10 +112,7 @@ gh api "$API/cp-infra/branches/production/protection" \
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
     "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true,
-    "bypass_pull_request_allowances": {
-      "users": ["$OWNER"]
-    }
+    "require_code_owner_reviews": true
   },
   "restrictions": null
 }

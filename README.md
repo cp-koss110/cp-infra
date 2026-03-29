@@ -3,6 +3,7 @@
 ![Staging Deploy](https://github.com/koss110/cp-infra/actions/workflows/staging-deploy.yml/badge.svg)
 ![Production Checks](https://github.com/koss110/cp-infra/actions/workflows/production-checks.yml/badge.svg)
 ![Production Deploy](https://github.com/koss110/cp-infra/actions/workflows/production-deploy.yml/badge.svg)
+![CodeQL](https://github.com/koss110/cp-infra/actions/workflows/codeql.yml/badge.svg)
 ![Terraform](https://img.shields.io/badge/terraform-1.7-7B42BC)
 ![AWS](https://img.shields.io/badge/AWS-ECS%20Fargate-FF9900)
 

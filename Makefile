@@ -7,11 +7,12 @@
         local-monitoring-up local-monitoring-down logs-monitoring \
         tf-init tf-plan-staging tf-apply-staging tf-plan-production tf-apply-production \
         app-test app-test-unit app-test-integration test-validate test-e2e install-e2e \
-        branch-protection branch-protection-production \
+        branch-protection branch-protection-production update-aws-secrets \
         nuke-staging nuke-production nuke-bootstrap nuke-all \
         venv-clean
 
-PROJECT_NAME := $(or $(PROJECT_NAME),exam-costa)
+PROJECT_NAME  := $(or $(PROJECT_NAME),exam-costa)
+GITHUB_OWNER  := $(or $(GITHUB_OWNER),koss110)
 
 BOOTSTRAP_DIR := iac/bootstrap
 COMPOSE            := docker compose -f local/docker-compose.yml
@@ -134,6 +135,8 @@ help:
 	@echo "  GitHub:"
 	@echo "    branch-protection              apply branch protection rules to all 3 repos"
 	@echo "    branch-protection-production   apply protection to cp-infra/production only"
+	@echo "    update-aws-secrets             rotate AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY"
+	@echo "                                   across cp-api, cp-worker, cp-infra (prompts for values)"
 	@echo "                                   (GITHUB_OWNER=koss110 by default)"
 	@echo ""
 	@echo "  Nuke (DESTRUCTIVE — destroys real AWS resources):"
@@ -289,6 +292,25 @@ branch-protection-production:
 	}
 	EOF
 	@echo "Done — cp-infra/production requires: Terraform Validate & Format + Terraform Plan + Smoke Tests + 1 review"
+	@echo ""
+
+update-aws-secrets:
+	@echo ""
+	@echo "==> Updating AWS credentials in GitHub Actions secrets (all 3 repos)..."
+	@echo "    Repos: $(GITHUB_OWNER)/cp-api, $(GITHUB_OWNER)/cp-worker, $(GITHUB_OWNER)/cp-infra"
+	@echo ""
+	@printf "Enter AWS_ACCESS_KEY_ID: "; read -r AWS_KEY_ID; \
+	printf "Enter AWS_SECRET_ACCESS_KEY: "; read -rs AWS_SECRET_KEY; echo ""; \
+	if [ -z "$$AWS_KEY_ID" ] || [ -z "$$AWS_SECRET_KEY" ]; then \
+		echo "ERROR: Both values are required. Aborted."; exit 1; \
+	fi; \
+	for repo in cp-api cp-worker cp-infra; do \
+		echo "  → $(GITHUB_OWNER)/$$repo"; \
+		gh secret set AWS_ACCESS_KEY_ID     --body "$$AWS_KEY_ID"     --repo $(GITHUB_OWNER)/$$repo; \
+		gh secret set AWS_SECRET_ACCESS_KEY --body "$$AWS_SECRET_KEY" --repo $(GITHUB_OWNER)/$$repo; \
+	done
+	@echo ""
+	@echo "Done. AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY updated in all 3 repos."
 	@echo ""
 
 test-validate:

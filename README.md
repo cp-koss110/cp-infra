@@ -10,35 +10,6 @@ Terraform infrastructure, local development stack, and CI/CD orchestration for t
 
 ---
 
-## Live environments
-
-All runtime endpoints are stored in SSM Parameter Store after each `terraform apply`. Retrieve them with:
-
-```bash
-# Staging
-aws ssm get-parameter --name /exam-costa/staging/outputs/alb_url           --query Parameter.Value --output text
-aws ssm get-parameter --name /exam-costa/staging/outputs/cloudwatch_dashboard_url --query Parameter.Value --output text
-
-# Production
-aws ssm get-parameter --name /exam-costa/production/outputs/alb_url              --query Parameter.Value --output text
-aws ssm get-parameter --name /exam-costa/production/outputs/cloudwatch_dashboard_url --query Parameter.Value --output text
-```
-
-| SSM path | Description |
-|----------|-------------|
-| `/exam-costa/{env}/outputs/alb_url` | ALB endpoint for the API |
-| `/exam-costa/{env}/outputs/cloudwatch_dashboard_url` | CloudWatch dashboard link |
-| `/exam-costa/{env}/outputs/sqs_queue_url` | SQS queue URL |
-| `/exam-costa/{env}/outputs/s3_bucket_name` | S3 messages bucket |
-| `/exam-costa/{env}/outputs/ecs_cluster_name` | ECS cluster name |
-| `/exam-costa/{env}/outputs/api_service_name` | ECS API service name |
-| `/exam-costa/{env}/outputs/worker_service_name` | ECS worker service name |
-| `/exam-costa/{env}/api/token` | API bearer token (SecureString) |
-
-`{env}` is `staging` or `production`.
-
----
-
 ## Repositories
 
 | Repo | Description |
@@ -409,7 +380,7 @@ Bootstraps:
 - S3 state bucket (`exam-costa-terraform-state`)
 - DynamoDB lock table (`exam-costa-terraform-locks`)
 - ECR repositories (`exam-costa-api`, `exam-costa-worker`)
-- SSM SecureString at `/exam-costa/api/token`
+- SSM SecureStrings at `/exam-costa/staging/api/token` and `/exam-costa/production/api/token`
 
 ### 2. Configure GitHub Actions secrets
 
@@ -478,3 +449,32 @@ cp-infra/
 │   └── apply-branch-protection.sh
 └── Makefile
 ```
+
+---
+
+## Live environments
+
+All runtime endpoints are stored in SSM Parameter Store after each `terraform apply`. Retrieve them with:
+
+```bash
+# Staging
+aws ssm get-parameter --name /exam-costa/staging/outputs/alb_url                    --query Parameter.Value --output text
+aws ssm get-parameter --name /exam-costa/staging/outputs/cloudwatch_dashboard_url   --query Parameter.Value --output text
+
+# Production
+aws ssm get-parameter --name /exam-costa/production/outputs/alb_url                 --query Parameter.Value --output text
+aws ssm get-parameter --name /exam-costa/production/outputs/cloudwatch_dashboard_url --query Parameter.Value --output text
+```
+
+| SSM path | Description |
+|----------|-------------|
+| `/exam-costa/{env}/outputs/alb_url` | ALB endpoint for the API |
+| `/exam-costa/{env}/outputs/cloudwatch_dashboard_url` | CloudWatch dashboard link |
+| `/exam-costa/{env}/outputs/sqs_queue_url` | SQS queue URL |
+| `/exam-costa/{env}/outputs/s3_bucket_name` | S3 messages bucket |
+| `/exam-costa/{env}/outputs/ecs_cluster_name` | ECS cluster name |
+| `/exam-costa/{env}/outputs/api_service_name` | ECS API service name |
+| `/exam-costa/{env}/outputs/worker_service_name` | ECS worker service name |
+| `/exam-costa/{env}/api/token` | API bearer token (SecureString) |
+
+`{env}` is `staging` or `production`.

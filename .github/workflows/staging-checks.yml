@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: staging-checks-${{ github.head_ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write

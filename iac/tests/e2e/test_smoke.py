@@ -2,18 +2,28 @@
 Smoke tests for the deployed API service.
 
 Run against staging (ALB_URL must be set):
-    ALB_URL=http://my-alb-dns.us-east-2.elb.amazonaws.com pytest tests/e2e/test_smoke.py -v
+    ALB_URL=https://my-alb-dns.us-east-2.elb.amazonaws.com pytest tests/e2e/test_smoke.py -v
 
 Tests are skipped when ALB_URL is not set.
 """
 
 import os
 import time
+import warnings
 from datetime import datetime, timezone
 
 import boto3
 import pytest
 import requests
+import urllib3
+
+# The ALB uses a self-signed certificate (no custom domain). Suppress the
+# resulting InsecureRequestWarning so test output stays clean.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Shared session — disables TLS verification for self-signed cert
+_session = requests.Session()
+_session.verify = False
 
 AWS_REGION   = os.environ.get("AWS_REGION", "us-east-2")
 E2E_ENV      = os.environ.get("E2E_ENV", "staging")
@@ -40,7 +50,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_health():
     """GET /healthz must return 200 with status=healthy."""
-    r = requests.get(f"{ALB_URL}/healthz", timeout=10)
+    r = _session.get(f"{ALB_URL}/healthz", timeout=10)
     assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
     body = r.json()
     assert body["status"] == "healthy", f"Unexpected status: {body}"
@@ -48,7 +58,7 @@ def test_health():
 
 def test_message_requires_auth():
     """POST /message without Authorization header must be rejected."""
-    r = requests.post(
+    r = _session.post(
         f"{ALB_URL}/message",
         json={},
         timeout=10,
@@ -60,7 +70,7 @@ def test_message_requires_auth():
 
 def test_message_rejects_invalid_token():
     """POST /message with wrong token must return 401."""
-    r = requests.post(
+    r = _session.post(
         f"{ALB_URL}/message",
         json={
             "data": {
@@ -78,7 +88,7 @@ def test_message_rejects_invalid_token():
 
 def test_health_returns_service_name():
     """GET /healthz must include service=api in response."""
-    r = requests.get(f"{ALB_URL}/healthz", timeout=10)
+    r = _session.get(f"{ALB_URL}/healthz", timeout=10)
     assert r.status_code == 200
     body = r.json()
     assert body.get("service") == "api", f"Unexpected service field: {body}"
@@ -96,7 +106,7 @@ def test_message_end_to_end():
     s3_prefix = f"messages/{date_prefix}/"
 
     # Send a real message with the valid token
-    r = requests.post(
+    r = _session.post(
         f"{ALB_URL}/message",
         json={
             "data": {

@@ -49,8 +49,10 @@ image_tag = "latest"
 # ==========================================
 # S3 Configuration
 # ==========================================
-s3_force_destroy     = true  # Allow easy cleanup in staging
-s3_lifecycle_enabled = false # No lifecycle rules needed in staging
+s3_force_destroy       = true  # Allow easy cleanup in staging
+s3_versioning_enabled  = false # No versioning needed in staging
+s3_block_public_access = false # Disabled — account SCP denies PutBucketPublicAccessBlock
+s3_lifecycle_enabled   = false # No lifecycle rules needed in staging
 
 # ==========================================
 # SQS Configuration

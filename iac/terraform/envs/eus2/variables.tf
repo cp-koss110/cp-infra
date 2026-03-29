@@ -374,3 +374,9 @@ variable "enable_ecr_enhanced_scanning" {
   type        = bool
   default     = false
 }
+
+variable "github_owner" {
+  description = "GitHub organisation or user that owns the service repos (used to build metric dimension values for GitHub/Actions CloudWatch widgets)"
+  type        = string
+  default     = "koss110"
+}

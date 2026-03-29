@@ -118,7 +118,7 @@ resource "aws_lb_listener" "http" {
 # HTTPS Listener (Port 443) - Optional
 # ==========================================
 resource "aws_lb_listener" "https" {
-  count = var.certificate_arn != null ? 1 : 0
+  count = var.enable_https ? 1 : 0
 
   load_balancer_arn = aws_lb.main.arn
   port              = 443
@@ -140,7 +140,7 @@ resource "aws_lb_listener" "https" {
 resource "aws_lb_listener_rule" "custom" {
   for_each = var.listener_rules
 
-  listener_arn = var.certificate_arn != null ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
+  listener_arn = var.enable_https ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
   priority     = each.value.priority
 
   action {

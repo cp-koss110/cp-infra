@@ -354,6 +354,7 @@ module "alb" {
   idle_timeout               = var.alb_idle_timeout
 
   # HTTPS — self-signed cert imported into ACM (no custom domain required)
+  enable_https          = true
   certificate_arn       = aws_acm_certificate.self_signed.arn
   enable_https_redirect = true
 

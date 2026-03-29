@@ -155,8 +155,8 @@ output "worker_task_role_arn" {
 output "quick_access" {
   description = "Quick access information"
   value = {
-    api_endpoint             = "http://${module.alb.load_balancer_dns_name}"
-    health_endpoint          = "http://${module.alb.load_balancer_dns_name}/healthz"
+    api_endpoint             = "https://${module.alb.load_balancer_dns_name}"
+    health_endpoint          = "https://${module.alb.load_balancer_dns_name}/healthz"
     sqs_queue_url            = module.sqs_messages.queue_url
     s3_bucket                = module.s3_messages.bucket_name
     cloudwatch_dashboard_url = var.enable_cloudwatch_monitoring ? "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.main[0].dashboard_name}" : null

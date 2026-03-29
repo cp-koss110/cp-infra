@@ -46,8 +46,10 @@ image_tag = "v1.0.0" # MUST be set via CI/CD with semver tag
 # ==========================================
 # S3 Configuration
 # ==========================================
-s3_force_destroy     = false # Protect data in production
-s3_lifecycle_enabled = true  # Enable lifecycle rules
+s3_force_destroy       = false # Protect data in production
+s3_versioning_enabled  = true  # Enable versioning in production
+s3_block_public_access = false # Disabled — account SCP denies PutBucketPublicAccessBlock
+s3_lifecycle_enabled   = true  # Enable lifecycle rules
 
 # ==========================================
 # SQS Configuration

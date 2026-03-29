@@ -150,6 +150,18 @@ variable "s3_lifecycle_enabled" {
   default     = true
 }
 
+variable "s3_versioning_enabled" {
+  description = "Enable versioning on the messages S3 bucket"
+  type        = bool
+  default     = false
+}
+
+variable "s3_block_public_access" {
+  description = "Block all public access on the messages S3 bucket. Disable if the account SCP denies s3:PutBucketPublicAccessBlock."
+  type        = bool
+  default     = false
+}
+
 # ==========================================
 # SQS Configuration
 # ==========================================

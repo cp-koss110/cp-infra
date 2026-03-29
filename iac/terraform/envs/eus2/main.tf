@@ -155,8 +155,9 @@ module "s3_messages" {
   bucket_name   = "${local.project_prefix}-messages-${data.aws_caller_identity.current.account_id}"
   force_destroy = var.s3_force_destroy
 
-  versioning_enabled = true
-  lifecycle_enabled  = var.s3_lifecycle_enabled
+  versioning_enabled  = var.s3_versioning_enabled
+  block_public_access = var.s3_block_public_access
+  lifecycle_enabled   = var.s3_lifecycle_enabled
 
   lifecycle_rules = var.s3_lifecycle_enabled ? [
     {

@@ -82,14 +82,21 @@ EOF
 
 # ─────────────────────────────────────────────────────────────────────────────
 # cp-infra — main
-# No required status checks — automated image-tag commits are pushed directly
-# by the release workflow using the owner PAT (bypasses rules via enforce_admins: false)
+# Checks match job `name:` fields in staging-checks.yml (runs on PRs to main).
+# Direct image-tag commits from the release workflow use the owner PAT and
+# bypass these rules via enforce_admins: false.
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ cp-infra/main"
 gh api "$API/cp-infra/branches/main/protection" \
   --method PUT --header "$HEADER" --input - <<EOF
 {
-  "required_status_checks": null,
+  "required_status_checks": {
+    "strict": true,
+    "contexts": [
+      "Terraform Validate & Format",
+      "Terraform Plan — Staging"
+    ]
+  },
   "enforce_admins": false,
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
@@ -136,7 +143,7 @@ echo ""
 echo "Done. Summary:"
 echo "  cp-api/main         — requires Lint + Unit Tests + Integration Tests + 1 review"
 echo "  cp-worker/main      — requires Lint + Unit Tests + Integration Tests + 1 review"
-echo "  cp-infra/main       — requires 1 review (no status checks — bot pushes bypass)"
+echo "  cp-infra/main       — requires Terraform Validate + Plan (Staging) + 1 review"
 echo "  cp-infra/production — requires all Terraform checks + 1 review"
 echo ""
 echo "Bypass: $OWNER (enforce_admins: false — owner is not subject to rules on personal repos)"

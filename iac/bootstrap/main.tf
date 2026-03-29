@@ -61,6 +61,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "tf_state" {
 }
 
 resource "aws_s3_bucket_public_access_block" "tf_state" {
+  count = var.enable_public_access_block ? 1 : 0
+
   bucket                  = aws_s3_bucket.tf_state.id
   block_public_acls       = true
   ignore_public_acls      = true

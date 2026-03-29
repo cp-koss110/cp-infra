@@ -7,6 +7,9 @@
 #   GITHUB_OWNER=other-user ./scripts/apply-branch-protection.sh
 #
 # Requires: gh CLI authenticated (gh auth status)
+#
+# Note: bypass_pull_request_allowances is an org-only API field and is omitted.
+# The owner bypasses rules via enforce_admins: false (personal repo equivalent).
 
 set -euo pipefail
 
@@ -38,17 +41,11 @@ gh api "$API/cp-api/branches/main/protection" \
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
     "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true,
-    "bypass_pull_request_allowances": {
-      "users": ["$OWNER"],
-      "teams": []
-    }
+    "require_code_owner_reviews": true
   },
   "restrictions": null
 }
 EOF
-# To add a developer team (requires GitHub org, uncomment when migrating):
-#   "teams": ["dev-team"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # cp-worker — main
@@ -69,17 +66,11 @@ gh api "$API/cp-worker/branches/main/protection" \
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
     "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true,
-    "bypass_pull_request_allowances": {
-      "users": ["$OWNER"],
-      "teams": []
-    }
+    "require_code_owner_reviews": true
   },
   "restrictions": null
 }
 EOF
-# To add a developer team (requires GitHub org, uncomment when migrating):
-#   "teams": ["dev-team"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # cp-infra — main
@@ -95,11 +86,7 @@ gh api "$API/cp-infra/branches/main/protection" \
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
     "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true,
-    "bypass_pull_request_allowances": {
-      "users": ["$OWNER"],
-      "teams": []
-    }
+    "require_code_owner_reviews": true
   },
   "restrictions": null
 }
@@ -125,11 +112,7 @@ gh api "$API/cp-infra/branches/production/protection" \
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
     "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true,
-    "bypass_pull_request_allowances": {
-      "users": ["$OWNER"],
-      "teams": []
-    }
+    "require_code_owner_reviews": true
   },
   "restrictions": null
 }
@@ -137,10 +120,10 @@ EOF
 
 echo ""
 echo "Done. Summary:"
-echo "  cp-api/main        — requires Lint + Unit Tests + Integration Tests + 1 review"
-echo "  cp-worker/main     — requires Lint + Unit Tests + Integration Tests + 1 review"
-echo "  cp-infra/main      — requires 1 review (no status checks — bot pushes bypass)"
+echo "  cp-api/main         — requires Lint + Unit Tests + Integration Tests + 1 review"
+echo "  cp-worker/main      — requires Lint + Unit Tests + Integration Tests + 1 review"
+echo "  cp-infra/main       — requires 1 review (no status checks — bot pushes bypass)"
 echo "  cp-infra/production — requires all Terraform checks + 1 review"
 echo ""
-echo "Bypass: $OWNER (enforce_admins: false)"
-echo "Teams:  add org teams to 'teams' array when migrating to a GitHub organisation"
+echo "Bypass: $OWNER (enforce_admins: false — owner is not subject to rules on personal repos)"
+echo "Note:   bypass_pull_request_allowances omitted — org-only GitHub feature"

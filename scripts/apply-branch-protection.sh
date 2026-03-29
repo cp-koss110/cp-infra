@@ -8,8 +8,10 @@
 #
 # Requires: gh CLI authenticated (gh auth status)
 #
-# Note: bypass_pull_request_allowances is an org-only API field and is omitted.
-# The owner bypasses rules via enforce_admins: false (personal repo equivalent).
+# Note: the following fields are org-only and are commented out below each block.
+# Restore them when migrating to a GitHub organisation:
+#   "require_code_owner_reviews": true
+#   "bypass_pull_request_allowances": { "users": ["$OWNER"], "teams": ["dev-team"] }
 
 set -euo pipefail
 
@@ -40,12 +42,15 @@ gh api "$API/cp-api/branches/main/protection" \
   "enforce_admins": false,
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
-    "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true
+    "dismiss_stale_reviews": true
   },
   "restrictions": null
 }
 EOF
+# Org-only — restore when migrating to a GitHub organisation:
+#   inside "required_pull_request_reviews":
+#     "require_code_owner_reviews": true,
+#     "bypass_pull_request_allowances": { "users": ["$OWNER"], "teams": [] }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # cp-worker — main
@@ -65,12 +70,15 @@ gh api "$API/cp-worker/branches/main/protection" \
   "enforce_admins": false,
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
-    "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true
+    "dismiss_stale_reviews": true
   },
   "restrictions": null
 }
 EOF
+# Org-only — restore when migrating to a GitHub organisation:
+#   inside "required_pull_request_reviews":
+#     "require_code_owner_reviews": true,
+#     "bypass_pull_request_allowances": { "users": ["$OWNER"], "teams": [] }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # cp-infra — main
@@ -85,12 +93,15 @@ gh api "$API/cp-infra/branches/main/protection" \
   "enforce_admins": false,
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
-    "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true
+    "dismiss_stale_reviews": true
   },
   "restrictions": null
 }
 EOF
+# Org-only — restore when migrating to a GitHub organisation:
+#   inside "required_pull_request_reviews":
+#     "require_code_owner_reviews": true,
+#     "bypass_pull_request_allowances": { "users": ["$OWNER"], "teams": [] }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # cp-infra — production
@@ -111,12 +122,15 @@ gh api "$API/cp-infra/branches/production/protection" \
   "enforce_admins": false,
   "required_pull_request_reviews": {
     "required_approving_review_count": 1,
-    "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true
+    "dismiss_stale_reviews": true
   },
   "restrictions": null
 }
 EOF
+# Org-only — restore when migrating to a GitHub organisation:
+#   inside "required_pull_request_reviews":
+#     "require_code_owner_reviews": true,
+#     "bypass_pull_request_allowances": { "users": ["$OWNER"], "teams": [] }
 
 echo ""
 echo "Done. Summary:"
@@ -126,4 +140,4 @@ echo "  cp-infra/main       — requires 1 review (no status checks — bot push
 echo "  cp-infra/production — requires all Terraform checks + 1 review"
 echo ""
 echo "Bypass: $OWNER (enforce_admins: false — owner is not subject to rules on personal repos)"
-echo "Note:   bypass_pull_request_allowances omitted — org-only GitHub feature"
+echo "Note:   require_code_owner_reviews + bypass_pull_request_allowances are org-only — see comments above"

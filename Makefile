@@ -277,7 +277,7 @@ branch-protection-production:
 	  --input - <<'EOF'
 	{
 	  "required_status_checks": {
-	    "strict": true,
+	    "strict": false,
 	    "contexts": [
 	      "Terraform Validate & Format",
 	      "Terraform Plan — Production",

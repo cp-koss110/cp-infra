@@ -145,6 +145,12 @@ help:
 	@echo "    nuke-bootstrap      Destroy ECR repos, state bucket, DynamoDB + delete API token"
 	@echo "    nuke-all            Destroy everything — asks for confirmation first"
 	@echo ""
+	@echo "  Nuke (DESTRUCTIVE — destroys real AWS resources):"
+	@echo "    nuke-staging        Destroy the staging Terraform environment"
+	@echo "    nuke-production     Destroy the production Terraform environment"
+	@echo "    nuke-bootstrap      Destroy ECR repos, state bucket, DynamoDB + delete API token"
+	@echo "    nuke-all            Destroy everything — asks for confirmation first"
+	@echo ""
 
 # ==========================================
 # Local stack

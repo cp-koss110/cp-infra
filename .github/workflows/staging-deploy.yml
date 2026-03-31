@@ -4,8 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "iac/**"
 
 env:
+  PROJECT_NAME: exam-costa
   TF_DIR: iac/terraform/envs/eus2
   AWS_REGION: us-east-2
   TF_BACKEND_BUCKET: exam-costa-terraform-state
@@ -17,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -26,19 +29,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Fetch API token from SSM
-        id: api-token
-        run: |
-          TOKEN=$(aws ssm get-parameter \
-            --name "/exam-costa/api/token" \
-            --with-decryption \
-            --query "Parameter.Value" \
-            --output text)
-          echo "::add-mask::$TOKEN"
-          echo "TF_API_TOKEN=$TOKEN" >> $GITHUB_ENV
-
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "~1.7"
 
@@ -47,7 +39,7 @@ jobs:
         run: |
           cat > backend.hcl <<EOF
           bucket         = "${{ env.TF_BACKEND_BUCKET }}"
-          key            = "envs/eus2/terraform.tfstate"
+          key            = "envs/eus2/staging/terraform.tfstate"
           region         = "${{ env.AWS_REGION }}"
           dynamodb_table = "${{ env.TF_LOCK_TABLE }}"
           encrypt        = true
@@ -63,9 +55,17 @@ jobs:
           terraform plan \
             -var-file=staging.tfvars \
             -var-file=image_tags.staging.tfvars \
-            -var="api_token_value=${{ env.TF_API_TOKEN }}" \
             -out=tfplan
 
       - name: Terraform Apply
         working-directory: ${{ env.TF_DIR }}
         run: terraform apply -auto-approve tfplan
+
+      - name: Report workflow status to CloudWatch
+        if: always()
+        uses: aws-actions/action-cloudwatch-metrics@main
+        with:
+          namespace: GitHub/Actions
+          metric-name: WorkflowRun
+          metric-dimensions: >-
+            [{"Name":"Repository","Value":"${{ github.repository }}"},{"Name":"Workflow","Value":"${{ github.workflow }}"}]

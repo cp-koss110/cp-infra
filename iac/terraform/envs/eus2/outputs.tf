@@ -67,12 +67,12 @@ output "sqs_dlq_url" {
 # ==========================================
 output "api_token_parameter_name" {
   description = "SSM parameter name for API token"
-  value       = module.ssm_api_token.parameter_name
+  value       = data.aws_ssm_parameter.api_token.name
 }
 
 output "api_token_parameter_arn" {
   description = "SSM parameter ARN for API token"
-  value       = module.ssm_api_token.parameter_arn
+  value       = data.aws_ssm_parameter.api_token.arn
 }
 
 # ==========================================
@@ -155,10 +155,11 @@ output "worker_task_role_arn" {
 output "quick_access" {
   description = "Quick access information"
   value = {
-    api_endpoint    = "http://${module.alb.load_balancer_dns_name}"
-    health_endpoint = "http://${module.alb.load_balancer_dns_name}/health"
-    sqs_queue_url   = module.sqs_messages.queue_url
-    s3_bucket       = module.s3_messages.bucket_name
+    api_endpoint             = "https://${module.alb.load_balancer_dns_name}"
+    health_endpoint          = "https://${module.alb.load_balancer_dns_name}/healthz"
+    sqs_queue_url            = module.sqs_messages.queue_url
+    s3_bucket                = module.s3_messages.bucket_name
+    cloudwatch_dashboard_url = var.enable_cloudwatch_monitoring ? "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.main[0].dashboard_name}" : null
   }
 }
 

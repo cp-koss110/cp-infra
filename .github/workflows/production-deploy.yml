@@ -6,6 +6,7 @@ on:
       - production
 
 env:
+  PROJECT_NAME: exam-costa
   TF_DIR: iac/terraform/envs/eus2
   AWS_REGION: us-east-2
   TF_BACKEND_BUCKET: exam-costa-terraform-state
@@ -16,8 +17,10 @@ jobs:
     name: Terraform Apply — Production
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -26,19 +29,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Fetch API token from SSM
-        id: api-token
-        run: |
-          TOKEN=$(aws ssm get-parameter \
-            --name "/exam-costa/api/token" \
-            --with-decryption \
-            --query "Parameter.Value" \
-            --output text)
-          echo "::add-mask::$TOKEN"
-          echo "TF_API_TOKEN=$TOKEN" >> $GITHUB_ENV
-
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "~1.7"
 
@@ -47,7 +39,7 @@ jobs:
         run: |
           cat > backend.hcl <<EOF
           bucket         = "${{ env.TF_BACKEND_BUCKET }}"
-          key            = "envs/eus2/terraform.tfstate"
+          key            = "envs/eus2/production/terraform.tfstate"
           region         = "${{ env.AWS_REGION }}"
           dynamodb_table = "${{ env.TF_LOCK_TABLE }}"
           encrypt        = true
@@ -61,11 +53,95 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           terraform plan \
-            -var-file=prod.tfvars \
+            -var-file=production.tfvars \
             -var-file=image_tags.production.tfvars \
-            -var="api_token_value=${{ env.TF_API_TOKEN }}" \
             -out=tfplan
 
       - name: Terraform Apply
         working-directory: ${{ env.TF_DIR }}
         run: terraform apply -auto-approve tfplan
+
+      # ---- Wait for ECS to stabilize ----
+      - name: Wait for ECS services to stabilize
+        run: |
+          CLUSTER=$(aws ssm get-parameter \
+            --name "/exam-costa/production/outputs/ecs_cluster_name" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          API_SVC=$(aws ssm get-parameter \
+            --name "/exam-costa/production/outputs/api_service_name" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          WORKER_SVC=$(aws ssm get-parameter \
+            --name "/exam-costa/production/outputs/worker_service_name" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          echo "Waiting for ECS services to reach steady state..."
+          aws ecs wait services-stable \
+            --cluster "$CLUSTER" \
+            --services "$API_SVC" "$WORKER_SVC" \
+            --region ${{ env.AWS_REGION }}
+          echo "ECS services are stable."
+
+      # ---- Post-deploy smoke tests ----
+      - name: Smoke tests — production
+        run: |
+          ALB_URL=$(aws ssm get-parameter \
+            --name "/${{ env.PROJECT_NAME }}/production/outputs/alb_url" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          S3_BUCKET=$(aws ssm get-parameter \
+            --name "/${{ env.PROJECT_NAME }}/production/outputs/s3_bucket_name" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          API_TOKEN=$(aws ssm get-parameter \
+            --name "/${{ env.PROJECT_NAME }}/production/api/token" \
+            --with-decryption \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }})
+          echo "Running smoke tests against $ALB_URL"
+          python3 -m pip install -q -r iac/tests/e2e/requirements.txt
+          PROJECT_NAME="${{ env.PROJECT_NAME }}" \
+          E2E_ENV="production" \
+          ALB_URL="$ALB_URL" \
+          API_TOKEN="$API_TOKEN" \
+          S3_BUCKET_NAME="$S3_BUCKET" \
+          AWS_REGION="${{ env.AWS_REGION }}" \
+          python3 -m pytest iac/tests/e2e -v
+
+      # ---- Create GitHub Release ----
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          API_TAG=$(grep 'api_image_tag' ${{ env.TF_DIR }}/image_tags.production.tfvars | cut -d'"' -f2)
+          WORKER_TAG=$(grep 'worker_image_tag' ${{ env.TF_DIR }}/image_tags.production.tfvars | cut -d'"' -f2)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          DEPLOY_TAG="production/$(date -u +%Y-%m-%d)-${SHORT_SHA}"
+          CW_URL=$(aws ssm get-parameter \
+            --name "/exam-costa/production/outputs/cloudwatch_dashboard_url" \
+            --query "Parameter.Value" --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$DEPLOY_TAG"
+          git push origin "$DEPLOY_TAG"
+          gh release create "$DEPLOY_TAG" \
+            --title "Production deploy — $(date -u +%Y-%m-%d)" \
+            --notes "## Deployed to production
+
+          | Service | Image tag |
+          |---------|-----------|
+          | api     | \`${API_TAG}\` |
+          | worker  | \`${WORKER_TAG}\` |
+
+          **Infra commit:** \`${SHORT_SHA}\`
+          **Triggered by:** \`${{ github.actor }}\`
+          ${CW_URL:+
+          ## Monitoring
+
+          | Dashboard | URL |
+          |-----------|-----|
+          | CloudWatch (production) | ${CW_URL} |}"
+
+      - name: Report workflow status to CloudWatch
+        if: always()
+        uses: aws-actions/action-cloudwatch-metrics@main
+        with:
+          namespace: GitHub/Actions
+          metric-name: WorkflowRun
+          metric-dimensions: >-
+            [{"Name":"Repository","Value":"${{ github.repository }}"},{"Name":"Workflow","Value":"${{ github.workflow }}"}]

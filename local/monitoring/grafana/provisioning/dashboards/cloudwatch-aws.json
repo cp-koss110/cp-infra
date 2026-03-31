@@ -1,0 +1,170 @@
+{
+  "title": "exam-costa — AWS CloudWatch",
+  "uid": "exam-costa-cloudwatch",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "ds_cloudwatch",
+        "label": "CloudWatch",
+        "type": "datasource",
+        "query": "cloudwatch",
+        "current": {},
+        "hide": 0
+      },
+      {
+        "name": "env",
+        "label": "Environment",
+        "type": "custom",
+        "query": "staging,production",
+        "current": { "text": "staging", "value": "staging" },
+        "options": [
+          { "text": "staging",    "value": "staging",    "selected": true },
+          { "text": "production", "value": "production", "selected": false }
+        ],
+        "hide": 0,
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+
+    { "id": 1, "type": "row", "title": "ECS — Compute",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 } },
+
+    {
+      "id": 2, "type": "timeseries", "title": "ECS CPU Utilization (%)",
+      "gridPos": { "x": 0, "y": 1, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100,
+        "custom": { "lineWidth": 2, "fillOpacity": 10 },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 }
+        ] } } },
+      "targets": [
+        { "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+          "namespace": "AWS/ECS", "metricName": "CPUUtilization", "statistic": "Average",
+          "period": "60", "refId": "api",
+          "dimensions": { "ClusterName": "exam-costa-${env}-cluster", "ServiceName": "exam-costa-${env}-api" },
+          "alias": "api" },
+        { "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+          "namespace": "AWS/ECS", "metricName": "CPUUtilization", "statistic": "Average",
+          "period": "60", "refId": "worker",
+          "dimensions": { "ClusterName": "exam-costa-${env}", "ServiceName": "exam-costa-${env}-worker" },
+          "alias": "worker" }
+      ]
+    },
+
+    {
+      "id": 3, "type": "timeseries", "title": "ECS Memory Utilization (%)",
+      "gridPos": { "x": 12, "y": 1, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100,
+        "custom": { "lineWidth": 2, "fillOpacity": 10 },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 }
+        ] } } },
+      "targets": [
+        { "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+          "namespace": "AWS/ECS", "metricName": "MemoryUtilization", "statistic": "Average",
+          "period": "60", "refId": "api",
+          "dimensions": { "ClusterName": "exam-costa-${env}-cluster", "ServiceName": "exam-costa-${env}-api" },
+          "alias": "api" },
+        { "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+          "namespace": "AWS/ECS", "metricName": "MemoryUtilization", "statistic": "Average",
+          "period": "60", "refId": "worker",
+          "dimensions": { "ClusterName": "exam-costa-${env}", "ServiceName": "exam-costa-${env}-worker" },
+          "alias": "worker" }
+      ]
+    },
+
+    { "id": 10, "type": "row", "title": "SQS — Queue",
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 } },
+
+    {
+      "id": 11, "type": "timeseries", "title": "SQS — Messages Visible (queue depth)",
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 10 },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "yellow", "value": 100 }, { "color": "red", "value": 1000 }
+        ] } } },
+      "targets": [
+        { "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+          "namespace": "AWS/SQS", "metricName": "ApproximateNumberOfMessagesVisible", "statistic": "Maximum",
+          "period": "60", "refId": "depth",
+          "dimensions": { "QueueName": "exam-costa-${env}-messages" },
+          "alias": "visible" },
+        { "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+          "namespace": "AWS/SQS", "metricName": "ApproximateNumberOfMessagesNotVisible", "statistic": "Maximum",
+          "period": "60", "refId": "inflight",
+          "dimensions": { "QueueName": "exam-costa-${env}-messages" },
+          "alias": "in-flight" }
+      ]
+    },
+
+    {
+      "id": 12, "type": "timeseries", "title": "SQS — Throughput",
+      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 10 } } },
+      "targets": [
+        { "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+          "namespace": "AWS/SQS", "metricName": "NumberOfMessagesSent", "statistic": "Sum",
+          "period": "60", "refId": "sent",
+          "dimensions": { "QueueName": "exam-costa-${env}-messages" },
+          "alias": "sent" },
+        { "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+          "namespace": "AWS/SQS", "metricName": "NumberOfMessagesDeleted", "statistic": "Sum",
+          "period": "60", "refId": "deleted",
+          "dimensions": { "QueueName": "exam-costa-${env}-messages" },
+          "alias": "deleted (processed)" }
+      ]
+    },
+
+    { "id": 20, "type": "row", "title": "ALB — Load Balancer",
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 1 } },
+
+    {
+      "id": 21, "type": "timeseries", "title": "ALB — Request Count",
+      "gridPos": { "x": 0, "y": 19, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 10 } } },
+      "targets": [
+        { "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+          "namespace": "AWS/ApplicationELB", "metricName": "RequestCount", "statistic": "Sum",
+          "period": "60", "refId": "req",
+          "dimensions": { "LoadBalancer": { "filter": "exam-costa-${env}" } },
+          "matchExact": false,
+          "alias": "requests" }
+      ]
+    },
+
+    {
+      "id": 22, "type": "timeseries", "title": "ALB — HTTP 5xx Errors",
+      "gridPos": { "x": 12, "y": 19, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 10 },
+        "color": { "mode": "fixed", "fixedColor": "red" } } },
+      "targets": [
+        { "datasource": { "type": "cloudwatch", "uid": "${ds_cloudwatch}" },
+          "namespace": "AWS/ApplicationELB", "metricName": "HTTPCode_ELB_5XX_Count", "statistic": "Sum",
+          "period": "60", "refId": "5xx",
+          "dimensions": { "LoadBalancer": { "filter": "exam-costa-${env}" } },
+          "matchExact": false,
+          "alias": "5xx errors" }
+      ]
+    }
+
+  ]
+}

@@ -49,8 +49,10 @@ image_tag = "latest"
 # ==========================================
 # S3 Configuration
 # ==========================================
-s3_force_destroy     = true  # Allow easy cleanup in staging
-s3_lifecycle_enabled = false # No lifecycle rules needed in staging
+s3_force_destroy       = true  # Allow easy cleanup in staging
+s3_versioning_enabled  = false # No versioning needed in staging
+s3_block_public_access = false # Disabled — account SCP denies PutBucketPublicAccessBlock
+s3_lifecycle_enabled   = false # No lifecycle rules needed in staging
 
 # ==========================================
 # SQS Configuration
@@ -60,10 +62,7 @@ sqs_message_retention  = 86400 # 1 day in staging
 sqs_receive_wait_time  = 20
 sqs_max_receive_count  = 5
 
-# ==========================================
-# SSM Configuration
-# ==========================================
-# api_token_value is passed via TF_VAR_api_token_value in GitHub Actions secrets
+# API token at /{project_name}/{env}/api/token is created by `make bootstrap`
 
 # ==========================================
 # ALB Configuration
@@ -74,7 +73,7 @@ alb_idle_timeout               = 60
 # ==========================================
 # ECS Configuration — smaller sizes for staging
 # ==========================================
-ecs_enable_container_insights = false # Save cost in staging
+ecs_enable_container_insights = true
 
 api_desired_count = 1   # Single instance in staging
 api_cpu           = 256 # 0.25 vCPU
@@ -89,9 +88,10 @@ log_level            = "INFO"
 # ==========================================
 # Logging / Monitoring
 # ==========================================
-log_retention_days      = 7     # Shorter retention in staging
-enable_alarms           = false # No alarms in staging
-enable_pipeline_metrics = false
+log_retention_days           = 7
+enable_cloudwatch_monitoring = true
+enable_alarms                = true
+enable_pipeline_metrics      = false
 
 # ==========================================
 # CI/CD Configuration

@@ -24,6 +24,12 @@ variable "force_destroy" {
   default     = true
 }
 
+variable "enable_public_access_block" {
+  description = "Create the S3 public-access-block resource on the state bucket. Disable if the account SCP denies s3:PutBucketPublicAccessBlock."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Additional tags merged into every resource. Use to add environment-specific or cost-tracking labels."
   type        = map(string)

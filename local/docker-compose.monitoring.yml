@@ -1,0 +1,95 @@
+version: "3.8"
+
+# Optional local monitoring stack — Prometheus + Grafana + Node Exporter
+#
+# Usage from cp-infra root:
+#   make local-monitoring-up    — start monitoring stack
+#   make local-monitoring-down  — stop and remove monitoring stack
+#
+# Grafana:    http://localhost:3000  (admin / grafana)
+# Prometheus: http://localhost:9090
+# Node Exp:   http://localhost:9100/metrics
+#
+# Requires the main stack to be running first (make local-build) so that
+# the exam-costa-local network exists for cross-stack scraping.
+
+networks:
+  monitoring:
+    name: exam-costa-monitoring
+    driver: bridge
+  # Join the main app network so Prometheus can reach exam-costa-api / exam-costa-worker
+  app:
+    name: exam-costa-local
+    external: true
+
+services:
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: exam-costa-prometheus
+    networks:
+      - monitoring
+      - app
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: exam-costa-grafana
+    networks:
+      - monitoring
+    ports:
+      - "3000:3000"
+    environment:
+      # Use any non-"admin" value to skip the forced change-password prompt on first login
+      - GF_SECURITY_ADMIN_PASSWORD=grafana
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/exam-costa.json
+      # AWS creds for CloudWatch datasource — fall back to "test" when not set locally
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-2}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.0
+    container_name: exam-costa-node-exporter
+    networks:
+      - monitoring
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

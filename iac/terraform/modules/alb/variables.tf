@@ -104,7 +104,7 @@ variable "slow_start" {
 variable "health_check_path" {
   description = "Health check path"
   type        = string
-  default     = "/"
+  default     = "/healthz"
 }
 
 variable "health_check_protocol" {
@@ -163,6 +163,12 @@ variable "stickiness_cookie_duration" {
 }
 
 # HTTPS Configuration
+variable "enable_https" {
+  description = "Enable HTTPS listener on port 443. Must be true when certificate_arn is set."
+  type        = bool
+  default     = false
+}
+
 variable "certificate_arn" {
   description = "ARN of SSL certificate (null for HTTP only)"
   type        = string

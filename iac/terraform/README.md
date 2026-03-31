@@ -23,7 +23,7 @@ iac/terraform/
         ├── outputs.tf   # Output values
         ├── backend.hcl.example         # S3 backend config template
         ├── test.tfvars.example         # Test environment values
-        └── prod.tfvars.example         # Production environment values
+        └── production.tfvars.example         # Production environment values
 ```
 
 ## Infrastructure Components
@@ -137,9 +137,9 @@ cp backend.hcl.example backend.hcl
 cp test.tfvars.example test.tfvars
 vim test.tfvars  # Customize values
 
-# For prod environment
-cp prod.tfvars.example prod.tfvars
-vim prod.tfvars  # Set production values
+# For production environment
+cp production.tfvars.example production.tfvars
+vim production.tfvars  # Set production values
 ```
 
 ### 5. Initialize Terraform
@@ -156,8 +156,8 @@ terraform plan -var-file=test.tfvars -out=tfplan-test
 terraform apply tfplan-test
 
 # Production environment (with specific image tag)
-terraform plan -var-file=prod.tfvars -var="image_tag=v1.0.0" -out=tfplan-prod
-terraform apply tfplan-prod
+terraform plan -var-file=production.tfvars -var="image_tag=v1.0.0" -out=tfplan-production
+terraform apply tfplan-production
 ```
 
 ### 7. Verify Deployment
@@ -213,7 +213,7 @@ The following environment-specific variables should be set:
 - `force_destroy = true` for easy cleanup
 - Shorter log retention (7 days)
 
-### Production Environment (`prod.tfvars`)
+### Production Environment (`production.tfvars`)
 - High availability (2+ tasks, across multiple AZs)
 - Multiple NAT Gateways (one per AZ)
 - `force_destroy = false` (data protection)
@@ -377,7 +377,7 @@ This Terraform configuration is deployed via GitHub Actions workflows in `.githu
 |----------|---------|--------|
 | `staging-deploy.yml` | push to `main` | `terraform apply` with `staging.tfvars` + `image_tags.staging.tfvars` |
 | `production-checks.yml` | PR targeting `production` | fmt-check, validate, plan (posted as PR comment), smoke tests |
-| `production-deploy.yml` | push to `production` | `terraform apply` with `prod.tfvars` + `image_tags.production.tfvars` |
+| `production-deploy.yml` | push to `production` | `terraform apply` with `production.tfvars` + `image_tags.production.tfvars` |
 
 ### Per-service image tags
 
@@ -463,7 +463,7 @@ make smoke-test
 terraform destroy -var-file=test.tfvars -auto-approve
 
 # Production (requires confirmation)
-terraform destroy -var-file=prod.tfvars
+terraform destroy -var-file=production.tfvars
 ```
 
 ### Migrating State

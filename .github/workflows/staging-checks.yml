@@ -1,12 +1,12 @@
-name: Production PR Checks
+name: Staging PR Checks
 
 on:
   pull_request:
     branches:
-      - production
+      - main
 
 concurrency:
-  group: production-checks-${{ github.head_ref }}
+  group: staging-checks-${{ github.head_ref }}
   cancel-in-progress: true
 
 permissions:
@@ -24,6 +24,7 @@ jobs:
   validate:
     name: Terraform Validate & Format
     runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v6
 
@@ -48,7 +49,7 @@ jobs:
         run: |
           cat > backend.hcl <<EOF
           bucket         = "${{ env.TF_BACKEND_BUCKET }}"
-          key            = "envs/eus2/production/terraform.tfstate"
+          key            = "envs/eus2/staging/terraform.tfstate"
           region         = "${{ env.AWS_REGION }}"
           dynamodb_table = "${{ env.TF_LOCK_TABLE }}"
           encrypt        = true
@@ -63,9 +64,10 @@ jobs:
         run: terraform validate
 
   plan:
-    name: Terraform Plan — Production
+    name: Terraform Plan — Staging
     runs-on: ubuntu-latest
     needs: validate
+    if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v6
 
@@ -87,7 +89,7 @@ jobs:
         run: |
           cat > backend.hcl <<EOF
           bucket         = "${{ env.TF_BACKEND_BUCKET }}"
-          key            = "envs/eus2/production/terraform.tfstate"
+          key            = "envs/eus2/staging/terraform.tfstate"
           region         = "${{ env.AWS_REGION }}"
           dynamodb_table = "${{ env.TF_LOCK_TABLE }}"
           encrypt        = true
@@ -102,8 +104,8 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           terraform plan \
-            -var-file=production.tfvars \
-            -var-file=image_tags.production.tfvars \
+            -var-file=staging.tfvars \
+            -var-file=image_tags.staging.tfvars \
             -no-color 2>&1 | tee plan_output.txt
         continue-on-error: true
 
@@ -116,7 +118,7 @@ jobs:
             const truncated = planOutput.length > 60000
               ? planOutput.substring(0, 60000) + '\n\n... output truncated (too large for comment)'
               : planOutput;
-            const body = `## Terraform Plan — Production\n\n<details>\n<summary>Click to expand plan output</summary>\n\n\`\`\`hcl\n${truncated}\n\`\`\`\n</details>`;
+            const body = `## Terraform Plan — Staging\n\n<details>\n<summary>Click to expand plan output</summary>\n\n\`\`\`hcl\n${truncated}\n\`\`\`\n</details>`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -127,52 +129,6 @@ jobs:
       - name: Fail if plan failed
         if: steps.plan.outcome == 'failure'
         run: exit 1
-
-  smoke-test:
-    name: Smoke Tests — Staging
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Resolve SSM parameters
-        run: |
-          ALB_URL=$(aws ssm get-parameter \
-            --name "/${{ env.PROJECT_NAME }}/staging/outputs/alb_url" \
-            --query "Parameter.Value" --output text)
-          S3_BUCKET=$(aws ssm get-parameter \
-            --name "/${{ env.PROJECT_NAME }}/staging/outputs/s3_bucket_name" \
-            --query "Parameter.Value" --output text)
-          API_TOKEN=$(aws ssm get-parameter \
-            --name "/${{ env.PROJECT_NAME }}/staging/api/token" \
-            --with-decryption \
-            --query "Parameter.Value" --output text)
-          echo "::add-mask::$API_TOKEN"
-          echo "ALB_URL=$ALB_URL"       >> $GITHUB_ENV
-          echo "S3_BUCKET=$S3_BUCKET"   >> $GITHUB_ENV
-          echo "API_TOKEN=$API_TOKEN"   >> $GITHUB_ENV
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install test dependencies
-        run: pip install -r iac/tests/e2e/requirements.txt
-
-      - name: Run smoke tests against staging
-        env:
-          ALB_URL:        ${{ env.ALB_URL }}
-          API_TOKEN:      ${{ env.API_TOKEN }}
-          S3_BUCKET_NAME: ${{ env.S3_BUCKET }}
-          AWS_REGION:     ${{ env.AWS_REGION }}
-        run: pytest iac/tests/e2e/test_smoke.py -v
 
       - name: Report workflow status to CloudWatch
         if: always()

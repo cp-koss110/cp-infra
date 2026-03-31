@@ -12,7 +12,7 @@
         venv-clean
 
 PROJECT_NAME  := $(or $(PROJECT_NAME),exam-costa)
-GITHUB_OWNER  := $(or $(GITHUB_OWNER),koss110)
+GITHUB_OWNER  := $(or $(GITHUB_OWNER),cp-koss110)
 
 BOOTSTRAP_DIR := iac/bootstrap
 COMPOSE            := docker compose -f local/docker-compose.yml
@@ -137,7 +137,7 @@ help:
 	@echo "    branch-protection-production   apply protection to cp-infra/production only"
 	@echo "    update-aws-secrets             rotate AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY"
 	@echo "                                   across cp-api, cp-worker, cp-infra (prompts for values)"
-	@echo "                                   (GITHUB_OWNER=koss110 by default)"
+	@echo "                                   (GITHUB_OWNER=cp-koss110 by default)"
 	@echo ""
 	@echo "  Nuke (DESTRUCTIVE — destroys real AWS resources):"
 	@echo "    nuke-staging        Destroy the staging Terraform environment"
@@ -265,7 +265,7 @@ branch-protection:
 branch-protection-production:
 	@echo ""
 	@echo "→ cp-infra/production"
-	@gh api "repos/${GITHUB_OWNER:-koss110}/cp-infra/branches/production/protection" \
+	@gh api "repos/${GITHUB_OWNER:-cp-koss110}/cp-infra/branches/production/protection" \
 	  --method PUT \
 	  --header "Accept: application/vnd.github+json" \
 	  --input - <<'EOF'
@@ -284,7 +284,7 @@ branch-protection-production:
 	    "dismiss_stale_reviews": true,
 	    "require_code_owner_reviews": true,
 	    "bypass_pull_request_allowances": {
-	      "users": ["${GITHUB_OWNER:-koss110}"],
+	      "users": ["${GITHUB_OWNER:-cp-koss110}"],
 	      "teams": []
 	    }
 	  },

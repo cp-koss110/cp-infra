@@ -1,9 +1,9 @@
 # cp-infra
 
-![Staging Deploy](https://github.com/koss110/cp-infra/actions/workflows/staging-deploy.yml/badge.svg)
-![Production Checks](https://github.com/koss110/cp-infra/actions/workflows/production-checks.yml/badge.svg)
-![Production Deploy](https://github.com/koss110/cp-infra/actions/workflows/production-deploy.yml/badge.svg)
-![CodeQL](https://github.com/koss110/cp-infra/actions/workflows/codeql.yml/badge.svg)
+![Staging Deploy](https://github.com/cp-koss110/cp-infra/actions/workflows/staging-deploy.yml/badge.svg)
+![Production Checks](https://github.com/cp-koss110/cp-infra/actions/workflows/production-checks.yml/badge.svg)
+![Production Deploy](https://github.com/cp-koss110/cp-infra/actions/workflows/production-deploy.yml/badge.svg)
+![CodeQL](https://github.com/cp-koss110/cp-infra/actions/workflows/codeql.yml/badge.svg)
 ![Terraform](https://img.shields.io/badge/terraform-1.7-7B42BC)
 ![AWS](https://img.shields.io/badge/AWS-ECS%20Fargate-FF9900)
 
@@ -15,9 +15,9 @@ Terraform infrastructure, local development stack, and CI/CD orchestration for t
 
 | Repo | Description |
 |------|-------------|
-| [`cp-api`](https://github.com/koss110/cp-api) | REST API — receives requests, validates token, publishes to SQS |
-| [`cp-worker`](https://github.com/koss110/cp-worker) | Background worker — polls SQS, uploads messages to S3 |
-| [`cp-infra`](https://github.com/koss110/cp-infra) | This repo — Terraform IaC + local stack + CI/CD workflows |
+| [`cp-api`](https://github.com/cp-koss110/cp-api) | REST API — receives requests, validates token, publishes to SQS |
+| [`cp-worker`](https://github.com/cp-koss110/cp-worker) | Background worker — polls SQS, uploads messages to S3 |
+| [`cp-infra`](https://github.com/cp-koss110/cp-infra) | This repo — Terraform IaC + local stack + CI/CD workflows |
 
 ---
 
@@ -181,9 +181,9 @@ flowchart LR
 
 ```bash
 # Clone all three repos as siblings
-git clone https://github.com/koss110/cp-infra
-git clone https://github.com/koss110/cp-api
-git clone https://github.com/koss110/cp-worker
+git clone https://github.com/cp-koss110/cp-infra
+git clone https://github.com/cp-koss110/cp-api
+git clone https://github.com/cp-koss110/cp-worker
 
 cd cp-infra
 

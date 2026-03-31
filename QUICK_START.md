@@ -16,9 +16,9 @@ Get the full stack running on your machine in under 5 minutes using Docker + Loc
 ## 1. Clone the three repos as siblings
 
 ```bash
-git clone https://github.com/koss110/cp-infra
-git clone https://github.com/koss110/cp-api
-git clone https://github.com/koss110/cp-worker
+git clone https://github.com/cp-koss110/cp-infra
+git clone https://github.com/cp-koss110/cp-api
+git clone https://github.com/cp-koss110/cp-worker
 ```
 
 The repos must sit in the same parent directory:

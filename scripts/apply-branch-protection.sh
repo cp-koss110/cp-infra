@@ -3,7 +3,7 @@
 # Applies branch protection rules to all three exam repos via the GitHub API.
 #
 # Usage:
-#   ./scripts/apply-branch-protection.sh              # uses default owner: koss110
+#   ./scripts/apply-branch-protection.sh              # uses default owner: cp-koss110
 #   GITHUB_OWNER=other-user ./scripts/apply-branch-protection.sh
 #
 # Requires: gh CLI authenticated (gh auth status)
@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-OWNER="${GITHUB_OWNER:-koss110}"
+OWNER="${GITHUB_OWNER:-cp-koss110}"
 API="repos/$OWNER"
 HEADER="Accept: application/vnd.github+json"
 

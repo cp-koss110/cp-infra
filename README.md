@@ -391,8 +391,8 @@ Add these 4 secrets to **all three repos** (cp-api, cp-worker, cp-infra):
 |--------|-------------|
 | `AWS_ACCESS_KEY_ID` | IAM access key |
 | `AWS_SECRET_ACCESS_KEY` | IAM secret key |
-| `INFRA_REPO_TOKEN` | Fine-grained PAT — cp-infra: contents + pull requests write |
-| `INFRA_REPO` | `koss110/cp-infra` |
+| `INFRA_REPO_TOKEN` | Fine-grained PAT — cp-infra: **Contents** (read/write) + **Pull requests** (read/write) + **Workflows** (read/write) |
+| `INFRA_REPO` | `cp-koss110/cp-infra` |
 
 ### 3. Push a tag to deploy
 
